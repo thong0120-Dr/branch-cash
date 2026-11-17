@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>BranchCash - ลงค่าใช้จ่ายรายสาขา</title>
+  <title>Cash Flow - ลงค่าใช้จ่ายรายสาขา</title>
   <style>
     * {
       box-sizing: border-box;
@@ -562,7 +562,7 @@
       <div class="brand">
         <div class="brand-icon">💰</div>
         <div>
-          <div class="brand-title">BranchCash</div>
+          <div class="brand-title">Cash Flow</div>
           <div class="brand-sub">ลงค่าใช้จ่าย & สรุปยอดรายสาขา</div>
         </div>
       </div>
@@ -1230,7 +1230,7 @@
 
       // Prepare CSV Content with Summary Header + Items Table
       let csv = '\uFEFF';
-      csv += `"รายงานสรุปยอดค่าใช้จ่าย - BranchCash"\n`;
+      csv += `"รายงานสรุปยอดค่าใช้จ่าย - Cash Flow"\n`;
       csv += `"สาขาที่เลือก:","${branchNameText}"\n`;
       csv += `"ช่วงเวลา:","${timeText}"\n`;
       csv += `"ยอดรวมค่าใช้จ่ายทั้งหมด (บาท):","${total.toFixed(2)}"\n`;
@@ -1254,7 +1254,7 @@
       const a = document.createElement('a');
       a.href = url;
       const cleanBranchForFile = selectedBranch.replace(/[\s\/\\]/g, '_');
-      a.download = `BranchCash_${cleanBranchForFile}_${timeText}_${new Date().toISOString().split('T')[0]}.csv`;
+      a.download = `CashFlow_${cleanBranchForFile}_${timeText}_${new Date().toISOString().split('T')[0]}.csv`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -1268,7 +1268,7 @@
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(transactions, null, 2));
       const a = document.createElement('a');
       a.href = dataStr;
-      a.download = `BranchCash_Backup_${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `CashFlow_Backup_${new Date().toISOString().split('T')[0]}.json`;
       document.body.appendChild(a);
       a.click();
       a.remove();
