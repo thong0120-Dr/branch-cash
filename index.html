@@ -1132,24 +1132,44 @@
     function safeGetStorage() {
       const possibleKeys = [
         STORAGE_KEY,
+        'branch_cash_app_data_v4',
         'branch_cash_app_data_v3',
         'branch_cash_app_data_v2',
-        'branch_cash_app_data'
+        'branch_cash_app_data',
+        'branch_cash_data'
       ];
+      const combined = new Map();
       try {
         if (typeof window.localStorage !== 'undefined' && window.localStorage !== null) {
           for (const key of possibleKeys) {
             const raw = window.localStorage.getItem(key);
             if (raw !== null) {
-              const parsed = JSON.parse(raw);
-              if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+              try {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed)) {
+                  parsed.forEach(item => {
+                    if (item && item.id && !combined.has(item.id)) {
+                      combined.set(item.id, item);
+                    }
+                  });
+                }
+              } catch(e){}
             }
           }
         }
       } catch (err) {
         console.warn('localStorage access failed', err);
       }
-      return Array.isArray(memoryStorage) ? memoryStorage : [];
+
+      if (Array.isArray(memoryStorage)) {
+        memoryStorage.forEach(item => {
+          if (item && item.id && !combined.has(item.id)) {
+            combined.set(item.id, item);
+          }
+        });
+      }
+
+      return Array.from(combined.values());
     }
 
     function safeSetStorage(data) {
@@ -1319,8 +1339,12 @@
       transactions = safeGetStorage();
       if (!Array.isArray(transactions)) transactions = [];
       updateCounts();
-      renderDashboard();
-      renderHistoryList();
+      try {
+        renderDashboard();
+        renderHistoryList();
+      } catch(e) {
+        console.warn('Initial render error:', e);
+      }
 
       // 2. Sync with cloud immediately on startup
       syncWithCloud(false);
@@ -1422,8 +1446,12 @@
       document.getElementById('inputNote').value = '';
 
       updateCounts();
-      renderDashboard();
-      renderHistoryList();
+      try {
+        renderDashboard();
+        renderHistoryList();
+      } catch(e) {
+        console.warn('Render error after save:', e);
+      }
       showToast(`⏳ กำลังบันทึก ${branch} ฿${amount.toLocaleString()} ขึ้นคลาวด์...`);
 
       // 2. Upload to Supabase Cloud
@@ -1499,7 +1527,8 @@
     }
 
     function renderDashboard() {
-      const branchFilter = document.getElementById('filterDashBranch').value;
+      const branchSelect = document.getElementById('filterDashBranch');
+      const branchFilter = branchSelect ? branchSelect.value : 'ALL';
       const now = new Date();
       const currentYear = now.getFullYear();
       const currentMonth = now.getMonth();
@@ -1532,70 +1561,98 @@
         }
       });
 
-      document.getElementById('statTotal').innerText = '฿' + total.toLocaleString('th-TH', { minimumFractionDigits: 2 });
-      document.getElementById('statTransfer').innerText = '฿' + transfer.toLocaleString('th-TH', { minimumFractionDigits: 2 });
-      document.getElementById('statCash').innerText = '฿' + cash.toLocaleString('th-TH', { minimumFractionDigits: 2 });
+      const transferPct = total > 0 ? Math.round((transfer / total) * 100) : 0;
+      const cashPct = total > 0 ? Math.round((cash / total) * 100) : 0;
 
-      const grid = document.getElementById('branchStatsGrid');
-      grid.innerHTML = '';
-      BRANCHES.forEach(b => {
-        const data = branchMap[b.id];
-        const card = document.createElement('div');
-        card.className = 'branch-stat-card';
-        card.innerHTML = `
-          <div class="branch-stat-header">
-            <span class="branch-stat-title">${b.icon} ${b.name}</span>
-            <button type="button" class="btn-sub-excel" onclick="openExportModalWithBranch('${b.id}')" title="ส่งออก Excel เฉพาะสาขานี้">
-              📊 Excel
-            </button>
-          </div>
-          <div class="branch-stat-sub">
-            <span>โอน: ฿${data.transfer.toLocaleString()}</span>
-            <span>สด: ฿${data.cash.toLocaleString()}</span>
-          </div>
-          <div class="branch-stat-total">฿${data.total.toLocaleString()}</div>
-        `;
-        grid.appendChild(card);
-      });
+      const elTotal = document.getElementById('dashTotal');
+      const elCount = document.getElementById('dashCount');
+      const elTransfer = document.getElementById('dashTransfer');
+      const elTransferRatio = document.getElementById('dashTransferRatio');
+      const elCash = document.getElementById('dashCash');
+      const elCashRatio = document.getElementById('dashCashRatio');
+
+      if (elTotal) elTotal.innerText = '฿' + total.toLocaleString('th-TH', { minimumFractionDigits: 2 });
+      if (elCount) elCount.innerText = `${filtered.length} รายการ`;
+      if (elTransfer) elTransfer.innerText = '฿' + transfer.toLocaleString('th-TH', { minimumFractionDigits: 2 });
+      if (elTransferRatio) elTransferRatio.innerText = `${transferPct}% ของยอดรวม`;
+      if (elCash) elCash.innerText = '฿' + cash.toLocaleString('th-TH', { minimumFractionDigits: 2 });
+      if (elCashRatio) elCashRatio.innerText = `${cashPct}% ของยอดรวม`;
+
+      const container = document.getElementById('branchStatGrid');
+      if (container) {
+        container.innerHTML = BRANCHES.map(b => {
+          const stat = branchMap[b.id];
+          return `
+            <div class="branch-stat-card" onclick="openExportModalWithBranch('${b.id}')" title="คลิกเพื่อส่งออกเฉพาะ ${b.name}">
+              <div class="branch-stat-name">
+                <span>${b.icon} ${b.name}</span>
+                <span style="font-size: 10px; color: #2563eb; font-weight: normal;">📥 ส่งออก</span>
+              </div>
+              <div class="branch-stat-row">
+                <span style="color: #64748b;">โอน:</span>
+                <span style="color: #2563eb; font-weight: 600;">฿${stat.transfer.toLocaleString()}</span>
+              </div>
+              <div class="branch-stat-row">
+                <span style="color: #64748b;">สด:</span>
+                <span style="color: #d97706; font-weight: 600;">฿${stat.cash.toLocaleString()}</span>
+              </div>
+              <div class="branch-stat-row branch-stat-total">
+                <span>รวม:</span>
+                <span>฿${stat.total.toLocaleString()}</span>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
     }
 
     function renderHistoryList() {
-      const branchFilter = document.getElementById('filterHistBranch').value;
-      const listEl = document.getElementById('historyList');
+      const searchEl = document.getElementById('histSearch');
+      const search = (searchEl ? searchEl.value || '' : '').toLowerCase();
+      const branchSelect = document.getElementById('histBranchFilter');
+      const branchFilter = branchSelect ? branchSelect.value : 'ALL';
+      const container = document.getElementById('historyListContainer');
+      if (!container) return;
 
-      let filtered = transactions;
-      if (branchFilter !== 'ALL') {
-        filtered = filtered.filter(t => t.branch === branchFilter);
-      }
+      const filtered = transactions.filter(t => {
+        const textMatch = (t.branch || '').toLowerCase().includes(search) ||
+                          (t.note || '').toLowerCase().includes(search) ||
+                          (t.category || '').toLowerCase().includes(search) ||
+                          (t.recorder || '').toLowerCase().includes(search) ||
+                          (t.amount || '').toString().includes(search);
+        const branchMatch = branchFilter === 'ALL' || t.branch === branchFilter;
+        return textMatch && branchMatch;
+      });
 
       if (filtered.length === 0) {
-        listEl.innerHTML = '<div style="text-align: center; padding: 30px; color: #94a3b8; font-size: 13px;">ยังไม่มีรายการค่าใช้จ่าย</div>';
+        container.innerHTML = `<div style="padding: 24px; text-align: center; color: #94a3b8; font-size: 13px;">ยังไม่มีรายการ หรือไม่พบข้อมูล</div>`;
         return;
       }
 
-      listEl.innerHTML = '';
-      filtered.forEach(t => {
-        const item = document.createElement('div');
-        item.className = 'history-item';
-        const methodTag = t.method === 'เงินสด' ? '<span class="h-tag tag-cash">เงินสด</span>' : '<span class="h-tag tag-transfer">เงินโอน</span>';
-        const recorderTag = t.recorder && t.recorder !== 'ไม่ระบุ' ? `<span class="h-tag" style="background: #f1f5f9; color: #475569;">👤 ${escapeHtml(t.recorder)}</span>` : '';
-        item.innerHTML = `
-          <div class="h-left">
-            <div class="h-branch">
-              <span>${t.branch}</span>
-              ${methodTag}
-              ${recorderTag}
+      container.innerHTML = filtered.map(t => {
+        const isTransfer = t.method === 'เงินโอน';
+        const recorderBadge = t.recorder && t.recorder !== 'ไม่ระบุ' ? `<span class="h-tag" style="background: #f1f5f9; color: #475569;">👤 ${escapeHtml(t.recorder)}</span>` : '';
+        return `
+          <div class="history-item">
+            <div class="h-left">
+              <div class="h-branch">
+                <span>${t.branch}</span>
+                <span class="h-tag ${isTransfer ? 'tag-transfer' : 'tag-cash'}">
+                  ${isTransfer ? '📱 เงินโอน' : '💵 เงินสด'}
+                </span>
+                ${recorderBadge}
+              </div>
+              <div class="h-desc">${t.category} • ${t.note}</div>
+              <div class="h-date">${t.date}</div>
             </div>
-            <div class="h-meta">${t.date} • ${t.category} ${t.note && t.note !== '-' ? '• ' + escapeHtml(t.note) : ''}</div>
-          </div>
-          <div class="h-right">
-            <div class="h-amount">฿${t.amount.toLocaleString()}</div>
-            <button type="button" class="btn-edit" onclick="openEditModal('${t.id}')" title="แก้ไขรายการ">✏️</button>
-            <button type="button" class="btn-del" onclick="deleteItem('${t.id}')" title="ลบรายการ">🗑️</button>
+            <div class="h-right">
+              <div class="h-amount">฿${t.amount.toLocaleString()}</div>
+              <button type="button" class="btn-del" onclick="openEditModal('${t.id}')" title="แก้ไข" style="color: #2563eb; font-size: 16px; margin-right: 4px; cursor: pointer;">✏️</button>
+              <button type="button" class="btn-del" onclick="deleteItem('${t.id}')" title="ลบ" style="color: #ef4444; font-size: 16px; cursor: pointer;">🗑️</button>
+            </div>
           </div>
         `;
-        listEl.appendChild(item);
-      });
+      }).join('');
     }
 
     function escapeHtml(str) {
@@ -1854,8 +1911,12 @@
       ];
       safeSetStorage(transactions);
       updateCounts();
-      renderDashboard();
-      renderHistoryList();
+      try {
+        renderDashboard();
+        renderHistoryList();
+      } catch(e) {
+        console.warn('Initial render error:', e);
+      }
       if (showToastMsg) {
         closeSettingsModal();
         showToast('โหลดข้อมูลตัวอย่างแล้ว');
