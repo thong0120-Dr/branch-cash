@@ -885,12 +885,15 @@
       try {
         if (typeof window.localStorage !== 'undefined' && window.localStorage !== null) {
           const raw = window.localStorage.getItem(STORAGE_KEY);
-          if (raw) return JSON.parse(raw);
+          if (raw !== null) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) return parsed;
+          }
         }
       } catch (err) {
         console.warn('localStorage access failed, using memory', err);
       }
-      return memoryStorage;
+      return Array.isArray(memoryStorage) ? memoryStorage : [];
     }
 
     function safeSetStorage(data) {
@@ -913,13 +916,13 @@
       if (dateEl) dateEl.value = dateStr;
 
       transactions = safeGetStorage();
-      if (!transactions || transactions.length === 0) {
-        loadSampleData(false);
-      } else {
-        updateCounts();
-        renderDashboard();
-        renderHistoryList();
+      if (!Array.isArray(transactions)) {
+        transactions = [];
+        safeSetStorage(transactions);
       }
+      updateCounts();
+      renderDashboard();
+      renderHistoryList();
     }
 
     function selectBranch(branchId) {
@@ -1321,6 +1324,7 @@
     function clearAllData() {
       if (confirm('คุณแน่ใจว่าต้องการลบข้อมูลทั้งหมด?')) {
         transactions = [];
+        memoryStorage = [];
         safeSetStorage(transactions);
         updateCounts();
         renderDashboard();
