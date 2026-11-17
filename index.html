@@ -563,10 +563,19 @@
         <div class="brand-icon">💰</div>
         <div>
           <div class="brand-title">Cash Flow</div>
-          <div class="brand-sub">ลงค่าใช้จ่าย & สรุปยอดรายสาขา</div>
+          <div class="brand-sub" style="display: flex; align-items: center; gap: 6px;">
+            <span>ลงค่าใช้จ่าย & สรุปยอดรายสาขา</span>
+            <span id="cloudStatusBadge" style="font-size: 10px; background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; padding: 1px 6px; border-radius: 10px; display: inline-flex; align-items: center; gap: 3px;">
+              <span style="width: 6px; height: 6px; background: #10b981; border-radius: 50%; display: inline-block;"></span>
+              คลาวด์ซิงก์ 2 คน
+            </span>
+          </div>
         </div>
       </div>
       <div class="header-actions">
+        <button type="button" class="btn-header" onclick="fetchCloudData(true)" title="กดเพื่อดึงข้อมูลล่าสุดจากคลาวด์" style="color: #2563eb; background: #eff6ff; border-color: #bfdbfe;">
+          <span id="syncIcon">🔄</span> <span class="sync-text">รีเฟรช</span>
+        </button>
         <!-- ปุ่มเปิดหน้าต่างส่งออก Excel ตามสาขา -->
         <button type="button" class="btn-header btn-excel" onclick="openExportModal()">
           <span>📊</span> ส่งออก Excel
@@ -679,10 +688,16 @@
             </div>
           </div>
 
-          <!-- 5. หมายเหตุ -->
-          <div class="form-group">
-            <label class="form-label">รายละเอียด / หมายเหตุ</label>
-            <input type="text" id="inputNote" placeholder="เช่น โอนค่าน้ำมันรถบัส 12, ค่าของใช้..." class="form-input">
+          <!-- 5. หมายเหตุ & ผู้ลงข้อมูล -->
+          <div class="form-group row-2">
+            <div>
+              <label class="form-label">รายละเอียด / หมายเหตุ</label>
+              <input type="text" id="inputNote" placeholder="เช่น โอนค่าน้ำมันรถบัส 12..." class="form-input">
+            </div>
+            <div>
+              <label class="form-label">ผู้ลงรายการ</label>
+              <input type="text" id="inputRecorder" placeholder="เช่น ทอง, บัญชี, แอดมิน" class="form-input">
+            </div>
           </div>
 
           <!-- SUBMIT -->
@@ -846,10 +861,16 @@
           </div>
         </div>
 
-        <!-- 5. หมายเหตุ -->
-        <div class="form-group">
-          <label class="form-label">รายละเอียด / หมายเหตุ</label>
-          <input type="text" id="editNote" placeholder="รายละเอียดค่าใช้จ่าย..." class="form-input">
+        <!-- 5. หมายเหตุ & ผู้ลงข้อมูล -->
+        <div class="form-group row-2">
+          <div>
+            <label class="form-label">รายละเอียด / หมายเหตุ</label>
+            <input type="text" id="editNote" placeholder="รายละเอียดค่าใช้จ่าย..." class="form-input">
+          </div>
+          <div>
+            <label class="form-label">ผู้ลงรายการ</label>
+            <input type="text" id="editRecorder" placeholder="เช่น ทอง, บัญชี" class="form-input">
+          </div>
         </div>
 
         <!-- ปุ่มบันทึก -->
@@ -967,6 +988,19 @@
       { id: 'ส่วนตัว', name: 'ส่วนตัว', icon: '👤' },
     ];
 
+    // ================= SUPABASE CLOUD CONFIG =================
+    const SUPABASE_URL = 'https://tanpwlbhnveccjcivgli.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_fbBZcciL0RB8Y7BiFp-ONA_OMphoh2H';
+    const SUPABASE_TABLE = 'dr_records';
+    const CLOUD_COLLECTION = 'cashflow_expenses';
+
+    const cloudHeaders = {
+      'apikey': SUPABASE_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation'
+    };
+
     function safeGetStorage() {
       try {
         if (typeof window.localStorage !== 'undefined' && window.localStorage !== null) {
@@ -977,7 +1011,7 @@
           }
         }
       } catch (err) {
-        console.warn('localStorage access failed, using memory', err);
+        console.warn('localStorage access failed', err);
       }
       return Array.isArray(memoryStorage) ? memoryStorage : [];
     }
@@ -989,7 +1023,114 @@
           window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
         }
       } catch (err) {
-        console.warn('localStorage write failed, using memory', err);
+        console.warn('localStorage write failed', err);
+      }
+    }
+
+    // CLOUD API: Fetch all expenses from Supabase
+    async function fetchCloudData(showFeedback = false) {
+      const badge = document.getElementById('cloudStatusBadge');
+      const icon = document.getElementById('syncIcon');
+      if (icon) icon.style.transform = 'rotate(180deg)';
+
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?collection=eq.${CLOUD_COLLECTION}&order=updated_at.desc`, {
+          headers: cloudHeaders
+        });
+
+        if (res.ok) {
+          const rows = await res.json();
+          // Map to transactions
+          transactions = rows.map(r => {
+            const item = r.data || {};
+            item.id = item.id || r.id;
+            return item;
+          });
+          safeSetStorage(transactions);
+          updateCounts();
+          renderDashboard();
+          renderHistoryList();
+
+          if (badge) {
+            badge.innerHTML = '<span style="width: 6px; height: 6px; background: #10b981; border-radius: 50%; display: inline-block;"></span> คลาวด์ซิงก์ตรงกันแล้ว';
+            badge.style.background = '#ecfdf5';
+            badge.style.color = '#065f46';
+          }
+          if (showFeedback) showToast('ซิงก์ข้อมูลจากคลาวด์เรียบร้อย (' + transactions.length + ' รายการ)');
+        } else {
+          throw new Error('Cloud response not ok: ' + res.status);
+        }
+      } catch (err) {
+        console.warn('Fetch cloud failed, using local cache:', err);
+        if (badge) {
+          badge.innerHTML = '<span style="width: 6px; height: 6px; background: #f59e0b; border-radius: 50%; display: inline-block;"></span> ใช้ออฟไลน์ชั่วคราว';
+          badge.style.background = '#fffbeb';
+          badge.style.color = '#b45309';
+        }
+        if (showFeedback) showToast('เชื่อมต่อคลาวด์ไม่ได้ กำลังใช้ข้อมูลในเครื่อง');
+      } finally {
+        if (icon) setTimeout(() => { icon.style.transform = 'none'; }, 500);
+      }
+    }
+
+    // CLOUD API: Insert 1 expense
+    async function syncInsertCloud(item) {
+      try {
+        const payload = {
+          collection: CLOUD_COLLECTION,
+          id: item.id,
+          data: item
+        };
+        await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}`, {
+          method: 'POST',
+          headers: cloudHeaders,
+          body: JSON.stringify(payload)
+        });
+      } catch (err) {
+        console.error('Error syncing insert to cloud:', err);
+      }
+    }
+
+    // CLOUD API: Update 1 expense
+    async function syncUpdateCloud(item) {
+      try {
+        const payload = {
+          collection: CLOUD_COLLECTION,
+          id: item.id,
+          data: item,
+          updated_at: new Date().toISOString()
+        };
+        await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?collection=eq.${CLOUD_COLLECTION}&id=eq.${item.id}`, {
+          method: 'PATCH',
+          headers: cloudHeaders,
+          body: JSON.stringify(payload)
+        });
+      } catch (err) {
+        console.error('Error syncing update to cloud:', err);
+      }
+    }
+
+    // CLOUD API: Delete 1 expense
+    async function syncDeleteCloud(id) {
+      try {
+        await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?collection=eq.${CLOUD_COLLECTION}&id=eq.${id}`, {
+          method: 'DELETE',
+          headers: cloudHeaders
+        });
+      } catch (err) {
+        console.error('Error syncing delete to cloud:', err);
+      }
+    }
+
+    // CLOUD API: Clear all expenses
+    async function syncClearAllCloud() {
+      try {
+        await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?collection=eq.${CLOUD_COLLECTION}`, {
+          method: 'DELETE',
+          headers: cloudHeaders
+        });
+      } catch (err) {
+        console.error('Error clearing cloud collection:', err);
       }
     }
 
@@ -1001,14 +1142,36 @@
       const dateEl = document.getElementById('inputDate');
       if (dateEl) dateEl.value = dateStr;
 
+      // Remember last recorder name
+      try {
+        const savedRecorder = localStorage.getItem('last_cashflow_recorder');
+        if (savedRecorder) {
+          const recEl = document.getElementById('inputRecorder');
+          if (recEl) recEl.value = savedRecorder;
+        }
+      } catch (e) {}
+
+      // 1. Load instant local cache first for zero wait time
       transactions = safeGetStorage();
-      if (!Array.isArray(transactions)) {
-        transactions = [];
-        safeSetStorage(transactions);
-      }
+      if (!Array.isArray(transactions)) transactions = [];
       updateCounts();
       renderDashboard();
       renderHistoryList();
+
+      // 2. Fetch live data from Supabase Cloud immediately
+      fetchCloudData(false);
+
+      // 3. Auto-sync every 20 seconds so multiple people see updates automatically!
+      setInterval(() => {
+        fetchCloudData(false);
+      }, 20000);
+
+      // 4. Auto-sync when user comes back to the browser tab
+      window.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+          fetchCloudData(false);
+        }
+      });
     }
 
     function selectBranch(branchId) {
@@ -1061,22 +1224,30 @@
       const date = document.getElementById('inputDate').value;
       const category = document.getElementById('selectCategory').value;
       const note = document.getElementById('inputNote').value.trim();
+      const recorder = (document.getElementById('inputRecorder').value || '').trim();
 
       if (!amount || amount <= 0) {
         showToast('กรุณาระบุจำนวนเงิน');
         return;
       }
 
+      // Save recorder preference
+      if (recorder) {
+        try { localStorage.setItem('last_cashflow_recorder', recorder); } catch(e){}
+      }
+
       const item = {
-        id: 't_' + Date.now(),
+        id: 't_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
         date: date,
         branch: branch,
         method: method,
         amount: amount,
         category: category,
-        note: note || '-'
+        note: note || '-',
+        recorder: recorder || 'ไม่ระบุ'
       };
 
+      // 1. Update local state immediately
       transactions.unshift(item);
       safeSetStorage(transactions);
 
@@ -1086,17 +1257,21 @@
       updateCounts();
       renderDashboard();
       renderHistoryList();
-      showToast(`บันทึก ${branch} ฿${amount.toLocaleString()} สำเร็จ`);
+      showToast(`บันทึก ${branch} ฿${amount.toLocaleString()} ซิงก์ขึ้นคลาวด์แล้ว`);
+
+      // 2. Sync to Supabase Cloud
+      syncInsertCloud(item);
     }
 
     function deleteItem(id) {
-      if (confirm('ต้องการลบรายการนี้ใช่หรือไม่?')) {
+      if (confirm('ต้องการลบรายการนี้ใช่หรือไม่? (จะลบออกจากคลาวด์ของทุกคนด้วย)')) {
         transactions = transactions.filter(t => t.id !== id);
         safeSetStorage(transactions);
         updateCounts();
         renderDashboard();
         renderHistoryList();
         showToast('ลบรายการแล้ว');
+        syncDeleteCloud(id);
       }
     }
 
@@ -1225,7 +1400,7 @@
                   ${isTransfer ? '📱 โอน' : '💵 สด'}
                 </span>
               </div>
-              <div class="h-desc">${t.category} • ${t.note}</div>
+              <div class="h-desc">${t.category} • ${t.note} ${t.recorder && t.recorder !== "ไม่ระบุ" ? `<span style="color: #6366f1; font-weight: 600;">(โดย: ${t.recorder})</span>` : ""}</div>
               <div class="h-date">${t.date}</div>
             </div>
             <div class="h-right">
@@ -1251,6 +1426,7 @@
       document.getElementById('editDate').value = item.date;
       document.getElementById('editCategory').value = item.category || 'ค่าใช้จ่ายทั่วไป';
       document.getElementById('editNote').value = item.note === '-' ? '' : (item.note || '');
+      document.getElementById('editRecorder').value = item.recorder === 'ไม่ระบุ' ? '' : (item.recorder || '');
 
       document.getElementById('editModal').classList.add('active');
     }
@@ -1287,24 +1463,29 @@
         return;
       }
 
+      const recorder = (document.getElementById('editRecorder').value || '').trim();
       const index = transactions.findIndex(t => t.id === id);
       if (index !== -1) {
-        transactions[index] = {
+        const updatedItem = {
           ...transactions[index],
           branch: branch,
           method: method,
           amount: amount,
           date: date,
           category: category,
-          note: note || '-'
+          note: note || '-',
+          recorder: recorder || 'ไม่ระบุ'
         };
+        transactions[index] = updatedItem;
 
         safeSetStorage(transactions);
         updateCounts();
         renderDashboard();
         renderHistoryList();
         closeEditModal();
-        showToast('แก้ไขข้อมูลเรียบร้อยแล้ว');
+        showToast('แก้ไขข้อมูลและซิงก์ขึ้นคลาวด์แล้ว');
+
+        syncUpdateCloud(updatedItem);
       }
     }
 
@@ -1479,7 +1660,7 @@
     }
 
     function clearAllData() {
-      if (confirm('คุณแน่ใจว่าต้องการลบข้อมูลทั้งหมด?')) {
+      if (confirm('คุณแน่ใจว่าต้องการลบข้อมูลทั้งหมด? (ข้อมูลบนคลาวด์จะถูกลบทั้งหมด)')) {
         transactions = [];
         memoryStorage = [];
         safeSetStorage(transactions);
@@ -1488,6 +1669,7 @@
         renderHistoryList();
         closeSettingsModal();
         showToast('ลบข้อมูลทั้งหมดแล้ว');
+        syncClearAllCloud();
       }
     }
 
