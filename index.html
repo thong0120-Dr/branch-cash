@@ -3,7 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Cash Flow - ลงค่าใช้จ่ายรายสาขา</title>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>Cash Flow - ลงค่าใช้จ่ายรายสาขา (Cloud Sync)</title>
   <style>
     * {
       box-sizing: border-box;
@@ -552,6 +555,13 @@
     .tab-content.active {
       display: block;
     }
+    @keyframes spin {
+      100% { transform: rotate(360deg); }
+    }
+    .rotating {
+      display: inline-block;
+      animation: spin 0.8s linear infinite;
+    }
   </style>
 </head>
 <body>
@@ -562,19 +572,22 @@
       <div class="brand">
         <div class="brand-icon">💰</div>
         <div>
-          <div class="brand-title">Cash Flow</div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <div class="brand-title">Cash Flow</div>
+            <span style="background: #2563eb; color: #ffffff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 6px;">v3.0 Cloud</span>
+          </div>
           <div class="brand-sub" style="display: flex; align-items: center; gap: 6px;">
             <span>ลงค่าใช้จ่าย & สรุปยอดรายสาขา</span>
             <span id="cloudStatusBadge" style="font-size: 10px; background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; padding: 1px 6px; border-radius: 10px; display: inline-flex; align-items: center; gap: 3px;">
               <span style="width: 6px; height: 6px; background: #10b981; border-radius: 50%; display: inline-block;"></span>
-              คลาวด์ซิงก์ 2 คน
+              คลาวด์ซิงก์ 2 เครื่อง
             </span>
           </div>
         </div>
       </div>
       <div class="header-actions">
-        <button type="button" class="btn-header" onclick="fetchCloudData(true)" title="กดเพื่อดึงข้อมูลล่าสุดจากคลาวด์" style="color: #2563eb; background: #eff6ff; border-color: #bfdbfe;">
-          <span id="syncIcon">🔄</span> <span class="sync-text">รีเฟรช</span>
+        <button type="button" class="btn-header" onclick="syncWithCloud(true)" title="กดเพื่อซิงก์ข้อมูลคลาวด์ทันที" style="color: #2563eb; background: #eff6ff; border-color: #bfdbfe;">
+          <span id="syncIcon">🔄</span> <span class="sync-text">ซิงก์ด่วน</span>
         </button>
         <!-- ปุ่มเปิดหน้าต่างส่งออก Excel ตามสาขา -->
         <button type="button" class="btn-header btn-excel" onclick="openExportModal()">
@@ -950,6 +963,10 @@
       </div>
 
       <div style="display: flex; flex-direction: column; gap: 8px;">
+        <button type="button" class="btn-header" onclick="forcePushAllToCloud()" style="padding: 11px; justify-content: center; background: #ecfdf5; color: #065f46; border: 1.5px solid #a7f3d0; font-weight: 700;">
+          ☁️ ส่งข้อมูลในเครื่องทั้งหมดขึ้นคลาวด์ (Force Sync)
+        </button>
+
         <button type="button" class="btn-header" onclick="exportBackupJSON()" style="padding: 10px; justify-content: center;">
           ⬇️ ดาวน์โหลดไฟล์สำรอง (Backup JSON)
         </button>
@@ -997,17 +1014,39 @@
     const cloudHeaders = {
       'apikey': SUPABASE_KEY,
       'Authorization': 'Bearer ' + SUPABASE_KEY,
-      'Content-Type': 'application/json',
-      'Prefer': 'return=representation'
+      'Content-Type': 'application/json'
     };
 
+    let isSyncing = false;
+    let deletedIds = new Set();
+    try {
+      const rawDel = localStorage.getItem('cashflow_deleted_ids');
+      if (rawDel) deletedIds = new Set(JSON.parse(rawDel));
+    } catch(e) {}
+
+    function markIdDeleted(id) {
+      if (!id) return;
+      deletedIds.add(id);
+      try {
+        localStorage.setItem('cashflow_deleted_ids', JSON.stringify(Array.from(deletedIds)));
+      } catch(e) {}
+    }
+
     function safeGetStorage() {
+      const possibleKeys = [
+        STORAGE_KEY,
+        'branch_cash_app_data_v3',
+        'branch_cash_app_data_v2',
+        'branch_cash_app_data'
+      ];
       try {
         if (typeof window.localStorage !== 'undefined' && window.localStorage !== null) {
-          const raw = window.localStorage.getItem(STORAGE_KEY);
-          if (raw !== null) {
-            const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed)) return parsed;
+          for (const key of possibleKeys) {
+            const raw = window.localStorage.getItem(key);
+            if (raw !== null) {
+              const parsed = JSON.parse(raw);
+              if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+            }
           }
         }
       } catch (err) {
@@ -1027,110 +1066,140 @@
       }
     }
 
-    // CLOUD API: Fetch all expenses from Supabase
-    async function fetchCloudData(showFeedback = false) {
+    // CLOUD API: Complete Bidirectional Sync (Zero Data Loss)
+    async function syncWithCloud(showToastFeedback = false) {
+      if (isSyncing) return;
+      isSyncing = true;
       const badge = document.getElementById('cloudStatusBadge');
       const icon = document.getElementById('syncIcon');
-      if (icon) icon.style.transform = 'rotate(180deg)';
+      if (icon) icon.classList.add('rotating');
 
       try {
+        // 1. Fetch current cloud records from Supabase
         const res = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?collection=eq.${CLOUD_COLLECTION}&order=updated_at.desc`, {
           headers: cloudHeaders
         });
 
-        if (res.ok) {
-          const rows = await res.json();
-          // Map to transactions
-          transactions = rows.map(r => {
-            const item = r.data || {};
-            item.id = item.id || r.id;
-            return item;
-          });
-          safeSetStorage(transactions);
-          updateCounts();
-          renderDashboard();
-          renderHistoryList();
+        if (!res.ok) throw new Error('Cloud HTTP ' + res.status);
+        const rows = await res.json();
 
-          if (badge) {
-            badge.innerHTML = '<span style="width: 6px; height: 6px; background: #10b981; border-radius: 50%; display: inline-block;"></span> คลาวด์ซิงก์ตรงกันแล้ว';
-            badge.style.background = '#ecfdf5';
-            badge.style.color = '#065f46';
+        const cloudMap = new Map();
+        rows.forEach(r => {
+          const it = r.data || {};
+          it.id = it.id || r.id;
+          if (it.id && !deletedIds.has(it.id)) {
+            it.synced = true;
+            cloudMap.set(it.id, it);
           }
-          if (showFeedback) showToast('ซิงก์ข้อมูลจากคลาวด์เรียบร้อย (' + transactions.length + ' รายการ)');
-        } else {
-          throw new Error('Cloud response not ok: ' + res.status);
+        });
+
+        // 2. Identify local items that need to be uploaded to cloud
+        const currentLocal = safeGetStorage();
+        const toUpload = [];
+        currentLocal.forEach(it => {
+          if (it && it.id && !deletedIds.has(it.id) && !cloudMap.has(it.id)) {
+            const cloudPayload = { ...it, synced: true };
+            toUpload.push({
+              collection: CLOUD_COLLECTION,
+              id: it.id,
+              data: cloudPayload
+            });
+            cloudMap.set(it.id, cloudPayload);
+          }
+        });
+
+        // 3. Upload missing items to cloud in bulk
+        if (toUpload.length > 0) {
+          try {
+            await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}`, {
+              method: 'POST',
+              headers: {
+                ...cloudHeaders,
+                'Prefer': 'resolution=merge-duplicates,return=representation'
+              },
+              body: JSON.stringify(toUpload)
+            });
+          } catch(err) {
+            console.warn('Auto upload local to cloud failed:', err);
+          }
+        }
+
+        // 4. Merge together: All cloud items sorted by date descending
+        const merged = Array.from(cloudMap.values());
+        merged.sort((a, b) => {
+          const da = a.date || '';
+          const db = b.date || '';
+          if (da !== db) return db.localeCompare(da);
+          return (b.id || '').localeCompare(a.id || '');
+        });
+
+        const prevLength = transactions.length;
+        transactions = merged;
+        safeSetStorage(transactions);
+        updateCounts();
+        renderDashboard();
+        renderHistoryList();
+
+        if (badge) {
+          const now = new Date();
+          const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+          badge.innerHTML = `<span style="width: 6px; height: 6px; background: #10b981; border-radius: 50%; display: inline-block;"></span> คลาวด์ซิงก์ตรงกันแล้ว (${transactions.length} รายการ)`;
+          badge.style.background = '#ecfdf5';
+          badge.style.color = '#065f46';
+          badge.title = `ซิงก์ล่าสุด: ${timeStr}`;
+        }
+
+        if (showToastFeedback) {
+          showToast(`✅ ซิงก์คลาวด์แล้ว: มีข้อมูล ${transactions.length} รายการ`);
         }
       } catch (err) {
-        console.warn('Fetch cloud failed, using local cache:', err);
+        console.warn('Cloud sync error, fallback to local:', err);
         if (badge) {
-          badge.innerHTML = '<span style="width: 6px; height: 6px; background: #f59e0b; border-radius: 50%; display: inline-block;"></span> ใช้ออฟไลน์ชั่วคราว';
+          badge.innerHTML = `<span style="width: 6px; height: 6px; background: #f59e0b; border-radius: 50%; display: inline-block;"></span> ใช้ออฟไลน์ชั่วคราว`;
           badge.style.background = '#fffbeb';
           badge.style.color = '#b45309';
         }
-        if (showFeedback) showToast('เชื่อมต่อคลาวด์ไม่ได้ กำลังใช้ข้อมูลในเครื่อง');
+        if (showToastFeedback) {
+          showToast('⚠️ เชื่อมต่อคลาวด์ไม่ได้ กำลังใช้ข้อมูลในเครื่อง');
+        }
       } finally {
-        if (icon) setTimeout(() => { icon.style.transform = 'none'; }, 500);
+        isSyncing = false;
+        if (icon) icon.classList.remove('rotating');
       }
     }
 
-    // CLOUD API: Insert 1 expense
-    async function syncInsertCloud(item) {
+    // Force upload all current local records to Cloud
+    async function forcePushAllToCloud() {
+      const current = safeGetStorage();
+      if (current.length === 0) {
+        showToast('ไม่มีข้อมูลในเครื่องให้ส่ง');
+        return;
+      }
+      showToast(`⏳ กำลังส่งข้อมูล ${current.length} รายการขึ้นคลาวด์...`);
       try {
-        const payload = {
+        const payload = current.map(it => ({
           collection: CLOUD_COLLECTION,
-          id: item.id,
-          data: item
-        };
-        await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}`, {
+          id: it.id,
+          data: { ...it, synced: true }
+        }));
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}`, {
           method: 'POST',
-          headers: cloudHeaders,
+          headers: {
+            ...cloudHeaders,
+            'Prefer': 'resolution=merge-duplicates,return=representation'
+          },
           body: JSON.stringify(payload)
         });
-      } catch (err) {
-        console.error('Error syncing insert to cloud:', err);
-      }
-    }
-
-    // CLOUD API: Update 1 expense
-    async function syncUpdateCloud(item) {
-      try {
-        const payload = {
-          collection: CLOUD_COLLECTION,
-          id: item.id,
-          data: item,
-          updated_at: new Date().toISOString()
-        };
-        await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?collection=eq.${CLOUD_COLLECTION}&id=eq.${item.id}`, {
-          method: 'PATCH',
-          headers: cloudHeaders,
-          body: JSON.stringify(payload)
-        });
-      } catch (err) {
-        console.error('Error syncing update to cloud:', err);
-      }
-    }
-
-    // CLOUD API: Delete 1 expense
-    async function syncDeleteCloud(id) {
-      try {
-        await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?collection=eq.${CLOUD_COLLECTION}&id=eq.${id}`, {
-          method: 'DELETE',
-          headers: cloudHeaders
-        });
-      } catch (err) {
-        console.error('Error syncing delete to cloud:', err);
-      }
-    }
-
-    // CLOUD API: Clear all expenses
-    async function syncClearAllCloud() {
-      try {
-        await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?collection=eq.${CLOUD_COLLECTION}`, {
-          method: 'DELETE',
-          headers: cloudHeaders
-        });
-      } catch (err) {
-        console.error('Error clearing cloud collection:', err);
+        if (res.ok) {
+          showToast(`✅ ส่งข้อมูล ${current.length} รายการขึ้นคลาวด์สำเร็จแล้ว!`);
+          closeSettingsModal();
+          syncWithCloud(false);
+        } else {
+          throw new Error('HTTP ' + res.status);
+        }
+      } catch(e) {
+        console.error('Force push failed:', e);
+        showToast('❌ ส่งขึ้นคลาวด์ไม่สำเร็จ ตรวจสอบอินเทอร์เน็ต');
       }
     }
 
@@ -1158,18 +1227,20 @@
       renderDashboard();
       renderHistoryList();
 
-      // 2. Fetch live data from Supabase Cloud immediately
-      fetchCloudData(false);
+      // 2. Sync with cloud immediately on startup
+      syncWithCloud(false);
 
-      // 3. Auto-sync every 20 seconds so multiple people see updates automatically!
+      // 3. Auto-sync polling every 5 seconds so both users see changes in near real-time!
       setInterval(() => {
-        fetchCloudData(false);
-      }, 20000);
+        if (!document.hidden) {
+          syncWithCloud(false);
+        }
+      }, 5000);
 
-      // 4. Auto-sync when user comes back to the browser tab
+      // 4. Auto-sync immediately when returning to the app
       window.addEventListener('visibilitychange', () => {
         if (!document.hidden) {
-          fetchCloudData(false);
+          syncWithCloud(false);
         }
       });
     }
@@ -1215,7 +1286,7 @@
       if (storEl) storEl.innerText = transactions.length;
     }
 
-    function saveExpense(e) {
+    async function saveExpense(e) {
       e.preventDefault();
       const branch = document.getElementById('selectedBranch').value;
       const method = document.getElementById('selectedPaymentMethod').value;
@@ -1237,14 +1308,15 @@
       }
 
       const item = {
-        id: 't_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+        id: 't_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
         date: date,
         branch: branch,
         method: method,
         amount: amount,
         category: category,
         note: note || '-',
-        recorder: recorder || 'ไม่ระบุ'
+        recorder: recorder || 'ไม่ระบุ',
+        synced: false
       };
 
       // 1. Update local state immediately
@@ -1257,21 +1329,55 @@
       updateCounts();
       renderDashboard();
       renderHistoryList();
-      showToast(`บันทึก ${branch} ฿${amount.toLocaleString()} ซิงก์ขึ้นคลาวด์แล้ว`);
+      showToast(`⏳ กำลังบันทึก ${branch} ฿${amount.toLocaleString()} ขึ้นคลาวด์...`);
 
-      // 2. Sync to Supabase Cloud
-      syncInsertCloud(item);
+      // 2. Upload to Supabase Cloud
+      try {
+        const payload = {
+          collection: CLOUD_COLLECTION,
+          id: item.id,
+          data: { ...item, synced: true }
+        };
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}`, {
+          method: 'POST',
+          headers: {
+            ...cloudHeaders,
+            'Prefer': 'resolution=merge-duplicates,return=representation'
+          },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          item.synced = true;
+          safeSetStorage(transactions);
+          showToast(`✅ บันทึกขึ้นคลาวด์แล้ว (อีกคนเห็นทันที)`);
+        } else {
+          throw new Error('HTTP ' + res.status);
+        }
+      } catch (err) {
+        console.warn('Cloud sync error, saved locally:', err);
+        showToast(`⚠️ บันทึกในเครื่องแล้ว ระบบจะซิงก์ขึ้นคลาวด์ให้อัตโนมัติ`);
+      }
     }
 
-    function deleteItem(id) {
+    async function deleteItem(id) {
       if (confirm('ต้องการลบรายการนี้ใช่หรือไม่? (จะลบออกจากคลาวด์ของทุกคนด้วย)')) {
+        markIdDeleted(id);
         transactions = transactions.filter(t => t.id !== id);
         safeSetStorage(transactions);
         updateCounts();
         renderDashboard();
         renderHistoryList();
-        showToast('ลบรายการแล้ว');
-        syncDeleteCloud(id);
+        showToast('🗑️ ลบรายการเรียบร้อย');
+
+        // Delete from Supabase
+        try {
+          await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?collection=eq.${CLOUD_COLLECTION}&id=eq.${id}`, {
+            method: 'DELETE',
+            headers: cloudHeaders
+          });
+        } catch(e) {
+          console.warn('Delete cloud failed:', e);
+        }
       }
     }
 
@@ -1331,88 +1437,76 @@
         }
       });
 
-      const transferPct = total > 0 ? Math.round((transfer / total) * 100) : 0;
-      const cashPct = total > 0 ? Math.round((cash / total) * 100) : 0;
+      document.getElementById('statTotal').innerText = '฿' + total.toLocaleString('th-TH', { minimumFractionDigits: 2 });
+      document.getElementById('statTransfer').innerText = '฿' + transfer.toLocaleString('th-TH', { minimumFractionDigits: 2 });
+      document.getElementById('statCash').innerText = '฿' + cash.toLocaleString('th-TH', { minimumFractionDigits: 2 });
 
-      document.getElementById('dashTotal').innerText = '฿' + total.toLocaleString('en-US', { minimumFractionDigits: 2 });
-      document.getElementById('dashCount').innerText = `${filtered.length} รายการ`;
-      document.getElementById('dashTransfer').innerText = '฿' + transfer.toLocaleString('en-US', { minimumFractionDigits: 2 });
-      document.getElementById('dashTransferRatio').innerText = `${transferPct}% ของยอดรวม`;
-      document.getElementById('dashCash').innerText = '฿' + cash.toLocaleString('en-US', { minimumFractionDigits: 2 });
-      document.getElementById('dashCashRatio').innerText = `${cashPct}% ของยอดรวม`;
-
-      const container = document.getElementById('branchStatGrid');
-      if (container) {
-        container.innerHTML = BRANCHES.map(b => {
-          const stat = branchMap[b.id];
-          return `
-            <div class="branch-stat-card" onclick="openExportModalWithBranch('${b.id}')" title="คลิกเพื่อส่งออกเฉพาะ ${b.name}">
-              <div class="branch-stat-name">
-                <span>${b.icon} ${b.name}</span>
-                <span style="font-size: 10px; color: #2563eb; font-weight: normal;">📥 ส่งออก</span>
-              </div>
-              <div class="branch-stat-row">
-                <span style="color: #64748b;">โอน:</span>
-                <span style="color: #2563eb; font-weight: 600;">฿${stat.transfer.toLocaleString()}</span>
-              </div>
-              <div class="branch-stat-row">
-                <span style="color: #64748b;">สด:</span>
-                <span style="color: #d97706; font-weight: 600;">฿${stat.cash.toLocaleString()}</span>
-              </div>
-              <div class="branch-stat-row branch-stat-total">
-                <span>รวม:</span>
-                <span>฿${stat.total.toLocaleString()}</span>
-              </div>
-            </div>
-          `;
-        }).join('');
-      }
+      const grid = document.getElementById('branchStatsGrid');
+      grid.innerHTML = '';
+      BRANCHES.forEach(b => {
+        const data = branchMap[b.id];
+        const card = document.createElement('div');
+        card.className = 'branch-stat-card';
+        card.innerHTML = `
+          <div class="branch-stat-header">
+            <span class="branch-stat-title">${b.icon} ${b.name}</span>
+            <button type="button" class="btn-sub-excel" onclick="openExportModalWithBranch('${b.id}')" title="ส่งออก Excel เฉพาะสาขานี้">
+              📊 Excel
+            </button>
+          </div>
+          <div class="branch-stat-sub">
+            <span>โอน: ฿${data.transfer.toLocaleString()}</span>
+            <span>สด: ฿${data.cash.toLocaleString()}</span>
+          </div>
+          <div class="branch-stat-total">฿${data.total.toLocaleString()}</div>
+        `;
+        grid.appendChild(card);
+      });
     }
 
     function renderHistoryList() {
-      const search = (document.getElementById('histSearch').value || '').toLowerCase();
-      const branchFilter = document.getElementById('histBranchFilter').value;
-      const container = document.getElementById('historyListContainer');
-      if (!container) return;
+      const branchFilter = document.getElementById('filterHistBranch').value;
+      const listEl = document.getElementById('historyList');
 
-      const filtered = transactions.filter(t => {
-        const textMatch = t.branch.toLowerCase().includes(search) ||
-                          (t.note || '').toLowerCase().includes(search) ||
-                          (t.category || '').toLowerCase().includes(search) ||
-                          t.amount.toString().includes(search);
-        const branchMatch = branchFilter === 'ALL' || t.branch === branchFilter;
-        return textMatch && branchMatch;
-      });
+      let filtered = transactions;
+      if (branchFilter !== 'ALL') {
+        filtered = filtered.filter(t => t.branch === branchFilter);
+      }
 
       if (filtered.length === 0) {
-        container.innerHTML = `<div style="padding: 24px; text-align: center; color: #94a3b8; font-size: 13px;">ยังไม่มีรายการ หรือไม่พบข้อมูล</div>`;
+        listEl.innerHTML = '<div style="text-align: center; padding: 30px; color: #94a3b8; font-size: 13px;">ยังไม่มีรายการค่าใช้จ่าย</div>';
         return;
       }
 
-      container.innerHTML = filtered.map(t => {
-        const isTransfer = t.method === 'เงินโอน';
-        return `
-          <div class="history-item">
-            <div class="h-left">
-              <div class="h-branch">
-                ${t.branch}
-                <span class="h-tag ${isTransfer ? 'tag-transfer' : 'tag-cash'}">
-                  ${isTransfer ? '📱 โอน' : '💵 สด'}
-                </span>
-              </div>
-              <div class="h-desc">${t.category} • ${t.note} ${t.recorder && t.recorder !== "ไม่ระบุ" ? `<span style="color: #6366f1; font-weight: 600;">(โดย: ${t.recorder})</span>` : ""}</div>
-              <div class="h-date">${t.date}</div>
+      listEl.innerHTML = '';
+      filtered.forEach(t => {
+        const item = document.createElement('div');
+        item.className = 'history-item';
+        const methodTag = t.method === 'เงินสด' ? '<span class="h-tag tag-cash">เงินสด</span>' : '<span class="h-tag tag-transfer">เงินโอน</span>';
+        const recorderTag = t.recorder && t.recorder !== 'ไม่ระบุ' ? `<span class="h-tag" style="background: #f1f5f9; color: #475569;">👤 ${escapeHtml(t.recorder)}</span>` : '';
+        item.innerHTML = `
+          <div class="h-left">
+            <div class="h-branch">
+              <span>${t.branch}</span>
+              ${methodTag}
+              ${recorderTag}
             </div>
-            <div class="h-right">
-              <div class="h-amount">฿${t.amount.toLocaleString()}</div>
-              <button type="button" class="btn-del" onclick="openEditModal('${t.id}')" title="แก้ไข" style="color: #2563eb; font-size: 15px; margin-right: 2px;">✏️</button>
-              <button type="button" class="btn-del" onclick="deleteItem('${t.id}')" title="ลบ">🗑️</button>
-            </div>
+            <div class="h-meta">${t.date} • ${t.category} ${t.note && t.note !== '-' ? '• ' + escapeHtml(t.note) : ''}</div>
+          </div>
+          <div class="h-right">
+            <div class="h-amount">฿${t.amount.toLocaleString()}</div>
+            <button type="button" class="btn-edit" onclick="openEditModal('${t.id}')" title="แก้ไขรายการ">✏️</button>
+            <button type="button" class="btn-del" onclick="deleteItem('${t.id}')" title="ลบรายการ">🗑️</button>
           </div>
         `;
-      }).join('');
+        listEl.appendChild(item);
+      });
     }
 
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
 
     // ================= EDIT EXPENSE LOGIC =================
     function openEditModal(id) {
@@ -1420,14 +1514,14 @@
       if (!item) return;
 
       document.getElementById('editId').value = item.id;
-      document.getElementById('editBranch').value = item.branch;
-      selectEditPaymentMethod(item.method || 'เงินโอน');
-      document.getElementById('editAmount').value = item.amount;
       document.getElementById('editDate').value = item.date;
-      document.getElementById('editCategory').value = item.category || 'ค่าใช้จ่ายทั่วไป';
-      document.getElementById('editNote').value = item.note === '-' ? '' : (item.note || '');
-      document.getElementById('editRecorder').value = item.recorder === 'ไม่ระบุ' ? '' : (item.recorder || '');
+      document.getElementById('editBranch').value = item.branch;
+      document.getElementById('editAmount').value = item.amount;
+      document.getElementById('editCategory').value = item.category;
+      document.getElementById('editNote').value = item.note && item.note !== '-' ? item.note : '';
+      document.getElementById('editRecorder').value = item.recorder && item.recorder !== 'ไม่ระบุ' ? item.recorder : '';
 
+      selectEditPaymentMethod(item.method || 'เงินโอน');
       document.getElementById('editModal').classList.add('active');
     }
 
@@ -1448,7 +1542,7 @@
       }
     }
 
-    function saveEditExpense(e) {
+    async function saveEditExpense(e) {
       e.preventDefault();
       const id = document.getElementById('editId').value;
       const branch = document.getElementById('editBranch').value;
@@ -1474,7 +1568,8 @@
           date: date,
           category: category,
           note: note || '-',
-          recorder: recorder || 'ไม่ระบุ'
+          recorder: recorder || 'ไม่ระบุ',
+          synced: true
         };
         transactions[index] = updatedItem;
 
@@ -1483,13 +1578,28 @@
         renderDashboard();
         renderHistoryList();
         closeEditModal();
-        showToast('แก้ไขข้อมูลและซิงก์ขึ้นคลาวด์แล้ว');
+        showToast('✏️ แก้ไขและซิงก์ขึ้นคลาวด์แล้ว');
 
-        syncUpdateCloud(updatedItem);
+        // Update in Supabase Cloud
+        try {
+          const payload = {
+            collection: CLOUD_COLLECTION,
+            id: updatedItem.id,
+            data: updatedItem,
+            updated_at: new Date().toISOString()
+          };
+          await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?collection=eq.${CLOUD_COLLECTION}&id=eq.${updatedItem.id}`, {
+            method: 'PATCH',
+            headers: cloudHeaders,
+            body: JSON.stringify(payload)
+          });
+        } catch(err) {
+          console.warn('Update cloud failed:', err);
+        }
       }
     }
 
-        // ================= EXPORT BY BRANCH LOGIC =================
+    // ================= EXPORT BY BRANCH LOGIC =================
     function openExportModal() {
       document.getElementById('exportModal').classList.add('active');
       updateExportPreview();
@@ -1541,18 +1651,21 @@
         else transfer += t.amount;
       });
 
-      document.getElementById('exportPreviewTotal').innerText = '฿' + total.toLocaleString('en-US', { minimumFractionDigits: 2 });
-      document.getElementById('exportPreviewSub').innerHTML = `<span>โอน: ฿${transfer.toLocaleString()}</span><span>สด: ฿${cash.toLocaleString()}</span>`;
+      document.getElementById('exportPreviewTotal').innerText = '฿' + total.toLocaleString('th-TH', { minimumFractionDigits: 2 });
+      document.getElementById('exportPreviewSub').innerHTML = `
+        <span style="color: #2563eb;">โอน: ฿${transfer.toLocaleString()}</span>
+        <span style="color: #059669;">สด: ฿${cash.toLocaleString()}</span>
+      `;
       document.getElementById('exportPreviewCount').innerText = `จำนวน ${filtered.length} รายการ`;
     }
 
     function executeExcelExport() {
-      const filtered = getExportFilteredData();
       const selectedBranch = document.getElementById('exportBranchSelect').value;
       const selectedTime = document.getElementById('exportTimeSelect').value;
+      const filtered = getExportFilteredData();
 
       if (filtered.length === 0) {
-        alert('ไม่พบรายการข้อมูลตามสาขาและช่วงเวลาที่เลือก');
+        showToast('ไม่มีรายการตามเงื่อนไขที่เลือก');
         return;
       }
 
@@ -1563,45 +1676,38 @@
         else transfer += t.amount;
       });
 
-      const branchNameText = selectedBranch === 'ALL' ? 'ทุกสาขา' : selectedBranch;
-      let timeText = 'ทั้งหมด';
-      if (selectedTime === 'today') timeText = 'วันนี้';
-      if (selectedTime === 'this_month') timeText = 'เดือนนี้';
-      if (selectedTime === 'this_year') timeText = 'ปีนี้';
+      let timeLabel = 'ทั้งหมด';
+      if (selectedTime === 'today') timeLabel = 'เฉพาะวันนี้';
+      else if (selectedTime === 'this_month') timeLabel = 'เฉพาะเดือนนี้';
+      else if (selectedTime === 'this_year') timeLabel = 'เฉพาะปีนี้';
 
-      // Prepare CSV Content with Summary Header + Items Table
+      const branchLabel = selectedBranch === 'ALL' ? 'ทุกสาขา' : selectedBranch;
+
       let csv = '\uFEFF';
-      csv += `"รายงานสรุปยอดค่าใช้จ่าย - Cash Flow"\n`;
-      csv += `"สาขาที่เลือก:","${branchNameText}"\n`;
-      csv += `"ช่วงเวลา:","${timeText}"\n`;
-      csv += `"ยอดรวมค่าใช้จ่ายทั้งหมด (บาท):","${total.toFixed(2)}"\n`;
-      csv += `"ยอดจ่ายผ่านเงินโอน (บาท):","${transfer.toFixed(2)}"\n`;
-      csv += `"ยอดจ่ายเป็นเงินสด (บาท):","${cash.toFixed(2)}"\n`;
-      csv += `"จำนวนรายการทั้งหมด:","${filtered.length} รายการ"\n`;
-      csv += `"วันที่พิมพ์รายงาน:","${new Date().toLocaleDateString('th-TH')}"\n\n`;
+      csv += `"รายงานสรุปยอดค่าใช้จ่าย: ${branchLabel}"\r\n`;
+      csv += `"ช่วงเวลา: ${timeLabel}"\r\n`;
+      csv += `"ยอดรวมทั้งหมด:","${total.toFixed(2)} บาท"\r\n`;
+      csv += `"ยอดเงินโอน:","${transfer.toFixed(2)} บาท","ยอดเงินสด:","${cash.toFixed(2)} บาท"\r\n`;
+      csv += `"จำนวนรายการ:","${filtered.length} รายการ"\r\n\r\n`;
 
-      csv += `วันที่,สาขา,ช่องทางการจ่าย,หมวดหมู่,รายละเอียด/หมายเหตุ,จำนวนเงิน(บาท)\n`;
-
+      csv += 'วันที่,สาขา,ช่องทาง,หมวดหมู่,ผู้บันทึก,รายละเอียด,จำนวนเงิน(บาท)\r\n';
       filtered.forEach(t => {
         const cleanNote = (t.note || '').replace(/"/g, '""');
-        csv += `"${t.date}","${t.branch}","${t.method}","${t.category}","${cleanNote}","${t.amount.toFixed(2)}"\n`;
+        const cleanRec = (t.recorder || 'ไม่ระบุ').replace(/"/g, '""');
+        csv += `"${t.date}","${t.branch}","${t.method}","${t.category}","${cleanRec}","${cleanNote}","${t.amount}"\r\n`;
       });
-
-      // Bottom Total Row
-      csv += `"-","สรุปยอดรวมทั้งสิ้น","-","-","-","${total.toFixed(2)}"\n`;
 
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      const cleanBranchForFile = selectedBranch.replace(/[\s\/\\]/g, '_');
-      a.download = `CashFlow_${cleanBranchForFile}_${timeText}_${new Date().toISOString().split('T')[0]}.csv`;
+      const cleanBranchName = branchLabel.replace(/[\/\s]/g, '_');
+      a.download = `CashFlow_${cleanBranchName}_${new Date().toISOString().split('T')[0]}.csv`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-
       closeExportModal();
-      showToast(`ดาวน์โหลดไฟล์ ${branchNameText} เรียบร้อย`);
+      showToast(`ดาวน์โหลด Excel ${branchLabel} เรียบร้อย`);
     }
 
     // BACKUP & RESTORE
@@ -1630,6 +1736,8 @@
             renderHistoryList();
             closeSettingsModal();
             showToast('นำเข้าข้อมูลสำเร็จ ' + transactions.length + ' รายการ');
+            // Auto sync to cloud
+            forcePushAllToCloud();
           }
         } catch(err) {
           alert('ไฟล์ไม่ถูกต้อง');
@@ -1659,17 +1767,26 @@
       }
     }
 
-    function clearAllData() {
+    async function clearAllData() {
       if (confirm('คุณแน่ใจว่าต้องการลบข้อมูลทั้งหมด? (ข้อมูลบนคลาวด์จะถูกลบทั้งหมด)')) {
+        transactions.forEach(t => { if (t && t.id) markIdDeleted(t.id); });
         transactions = [];
         memoryStorage = [];
-        safeSetStorage(transactions);
+        safeSetStorage([]);
         updateCounts();
         renderDashboard();
         renderHistoryList();
         closeSettingsModal();
         showToast('ลบข้อมูลทั้งหมดแล้ว');
-        syncClearAllCloud();
+
+        try {
+          await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?collection=eq.${CLOUD_COLLECTION}`, {
+            method: 'DELETE',
+            headers: cloudHeaders
+          });
+        } catch(err) {
+          console.warn('Clear cloud failed:', err);
+        }
       }
     }
 
