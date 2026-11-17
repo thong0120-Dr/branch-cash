@@ -1,0 +1,1179 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>BranchCash - ลงค่าใช้จ่ายรายสาขา</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Thonburi", "Sukhumvit Set", sans-serif;
+      background-color: #f1f5f9;
+      color: #0f172a;
+      line-height: 1.5;
+      padding-bottom: 60px;
+    }
+
+    /* HEADER */
+    .app-header {
+      background: #ffffff;
+      border-bottom: 1px solid #e2e8f0;
+      padding: 12px 16px;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .header-content {
+      max-width: 900px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .brand-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: #2563eb;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+    .brand-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    .brand-sub {
+      font-size: 11px;
+      color: #64748b;
+    }
+    .header-actions {
+      display: flex;
+      gap: 8px;
+    }
+    .btn-header {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #334155;
+      cursor: pointer;
+    }
+    .btn-excel {
+      background: #ecfdf5;
+      border-color: #a7f3d0;
+      color: #065f46;
+    }
+
+    /* CONTAINER */
+    .container {
+      max-width: 900px;
+      margin: 16px auto;
+      padding: 0 14px;
+    }
+
+    /* TABS */
+    .nav-tabs {
+      display: flex;
+      background: #e2e8f0;
+      padding: 4px;
+      border-radius: 14px;
+      margin-bottom: 16px;
+      max-width: 440px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .nav-tab {
+      flex: 1;
+      padding: 9px 8px;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 600;
+      border: none;
+      background: transparent;
+      color: #64748b;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+    .nav-tab.active {
+      background: #ffffff;
+      color: #1d4ed8;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+    }
+
+    /* CARD */
+    .card {
+      background: #ffffff;
+      border-radius: 18px;
+      padding: 18px;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+      margin-bottom: 16px;
+    }
+    .card-title {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 14px;
+      color: #0f172a;
+    }
+
+    .form-group {
+      margin-bottom: 14px;
+    }
+    .form-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      color: #475569;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+    }
+
+    /* BRANCH GRID (HARDCODED HTML - ไม่ต้องรอ JS) */
+    .branch-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    @media (min-width: 600px) {
+      .branch-grid {
+        grid-template-columns: repeat(6, 1fr);
+      }
+    }
+    .branch-btn {
+      padding: 10px 4px;
+      border-radius: 12px;
+      border: 1.5px solid #e2e8f0;
+      background: #f8fafc;
+      color: #1e293b;
+      font-size: 12px;
+      font-weight: 600;
+      text-align: center;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+    }
+    .branch-btn.selected {
+      background: #2563eb;
+      color: #ffffff;
+      border-color: #2563eb;
+      box-shadow: 0 3px 8px rgba(37,99,235,0.3);
+    }
+
+    /* PAYMENT GRID */
+    .payment-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .payment-btn {
+      padding: 12px;
+      border-radius: 14px;
+      border: 2px solid #e2e8f0;
+      background: #f8fafc;
+      font-size: 14px;
+      font-weight: 700;
+      color: #334155;
+      text-align: center;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .payment-btn.selected-transfer {
+      border-color: #2563eb;
+      background: #eff6ff;
+      color: #1d4ed8;
+    }
+    .payment-btn.selected-cash {
+      border-color: #d97706;
+      background: #fffbeb;
+      color: #b45309;
+    }
+
+    /* AMOUNT */
+    .amount-input-box {
+      position: relative;
+    }
+    .currency-sign {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 22px;
+      font-weight: 700;
+      color: #94a3b8;
+    }
+    .amount-input {
+      width: 100%;
+      padding: 14px 14px 14px 38px;
+      font-size: 26px;
+      font-weight: 700;
+      color: #0f172a;
+      background: #f8fafc;
+      border: 2px solid #e2e8f0;
+      border-radius: 14px;
+      outline: none;
+    }
+    .amount-input:focus {
+      background: #ffffff;
+      border-color: #2563eb;
+    }
+
+    .quick-amounts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .quick-btn {
+      padding: 6px 10px;
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #334155;
+      cursor: pointer;
+    }
+    .quick-clear {
+      color: #ef4444;
+      border-color: #fca5a5;
+      background: #fef2f2;
+    }
+
+    .row-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .form-input, .form-select {
+      width: 100%;
+      padding: 11px 12px;
+      font-size: 14px;
+      color: #0f172a;
+      background: #f8fafc;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 12px;
+      outline: none;
+      font-family: inherit;
+    }
+    .form-input:focus, .form-select:focus {
+      background: #ffffff;
+      border-color: #2563eb;
+    }
+
+    /* SUBMIT BUTTON */
+    .btn-submit {
+      width: 100%;
+      padding: 15px;
+      background: #2563eb;
+      color: #ffffff;
+      border: none;
+      border-radius: 14px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 4px 12px rgba(37,99,235,0.25);
+      margin-top: 6px;
+    }
+    .btn-submit:active {
+      background: #1d4ed8;
+    }
+
+    /* KPI */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    @media (min-width: 600px) {
+      .kpi-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+    .kpi-card {
+      background: #ffffff;
+      padding: 14px 16px;
+      border-radius: 14px;
+      border: 1px solid #e2e8f0;
+    }
+    .kpi-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #64748b;
+      text-transform: uppercase;
+    }
+    .kpi-value {
+      font-size: 24px;
+      font-weight: 800;
+      color: #0f172a;
+      margin: 4px 0;
+    }
+    .kpi-sub {
+      font-size: 11px;
+      color: #94a3b8;
+    }
+
+    /* BRANCH STATS */
+    .branch-stat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    @media (min-width: 600px) {
+      .branch-stat-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+    @media (min-width: 800px) {
+      .branch-stat-grid {
+        grid-template-columns: repeat(6, 1fr);
+      }
+    }
+    .branch-stat-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 10px;
+    }
+    .branch-stat-name {
+      font-size: 12px;
+      font-weight: 700;
+      color: #1e293b;
+      margin-bottom: 6px;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 4px;
+    }
+    .branch-stat-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      margin-bottom: 3px;
+    }
+    .branch-stat-total {
+      margin-top: 6px;
+      padding-top: 4px;
+      border-top: 1px dashed #cbd5e1;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    /* FILTER BAR */
+    .filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 12px;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .time-pills {
+      display: flex;
+      gap: 4px;
+    }
+    .pill-btn {
+      padding: 6px 10px;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      font-size: 11px;
+      font-weight: 600;
+      color: #475569;
+      cursor: pointer;
+    }
+    .pill-btn.active {
+      background: #2563eb;
+      color: #ffffff;
+      border-color: #2563eb;
+    }
+
+    /* HISTORY LIST */
+    .history-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .history-item:last-child {
+      border-bottom: none;
+    }
+    .h-left {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .h-branch {
+      font-size: 13px;
+      font-weight: 700;
+      color: #1e293b;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .h-tag {
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 6px;
+      font-weight: 600;
+    }
+    .tag-transfer {
+      background: #eff6ff;
+      color: #1d4ed8;
+    }
+    .tag-cash {
+      background: #fffbeb;
+      color: #b45309;
+    }
+    .h-desc {
+      font-size: 11px;
+      color: #64748b;
+    }
+    .h-date {
+      font-size: 10px;
+      color: #94a3b8;
+    }
+    .h-right {
+      text-align: right;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .h-amount {
+      font-size: 15px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    .btn-del {
+      background: none;
+      border: none;
+      color: #ef4444;
+      font-size: 16px;
+      cursor: pointer;
+      padding: 4px;
+    }
+
+    /* TOAST */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: #0f172a;
+      color: #ffffff;
+      padding: 10px 20px;
+      border-radius: 30px;
+      font-size: 13px;
+      font-weight: 600;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+      transition: transform 0.3s;
+      z-index: 999;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* MODAL */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15,23,42,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 100;
+      visibility: hidden;
+      opacity: 0;
+      transition: all 0.2s;
+    }
+    .modal-overlay.active {
+      visibility: visible;
+      opacity: 1;
+    }
+    .modal-box {
+      background: #ffffff;
+      width: 100%;
+      max-width: 400px;
+      border-radius: 20px;
+      padding: 20px;
+    }
+
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="app-header">
+    <div class="header-content">
+      <div class="brand">
+        <div class="brand-icon">💰</div>
+        <div>
+          <div class="brand-title">BranchCash</div>
+          <div class="brand-sub">ลงค่าใช้จ่าย & สรุปยอดรายสาขา</div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button type="button" class="btn-header btn-excel" onclick="exportToExcel()">📊 Excel</button>
+        <button type="button" class="btn-header" onclick="openSettingsModal()">⚙️ สำรอง</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="container">
+    
+    <!-- TABS NAVIGATION -->
+    <div class="nav-tabs">
+      <button type="button" class="nav-tab active" id="tabBtnEntry" onclick="switchNavTab('entry')">➕ ลงรายการ</button>
+      <button type="button" class="nav-tab" id="tabBtnDash" onclick="switchNavTab('dash')">📊 สรุปยอด</button>
+      <button type="button" class="nav-tab" id="tabBtnHist" onclick="switchNavTab('hist')">📋 ประวัติ (<span id="histCount">0</span>)</button>
+    </div>
+
+    <!-- ================= TAB 1: FORM ================= -->
+    <div class="tab-content active" id="tabContentEntry">
+      <div class="card">
+        <div class="card-title">ลงค่าใช้จ่ายให้แต่ละสาขา</div>
+
+        <form id="expenseForm" onsubmit="saveExpense(event)">
+          
+          <!-- 1. เลือกสาขา (ปุ่มฝังใน HTML ถาวร 100% ไม่หายแน่นอน) -->
+          <div class="form-group">
+            <label class="form-label">เลือกสาขา *</label>
+            <div class="branch-grid" id="branchGrid">
+              <button type="button" class="branch-btn selected" data-branch="สาขาเชียงใหม่" onclick="selectBranch('สาขาเชียงใหม่')">
+                <span class="branch-icon">🏢</span>
+                <span>เชียงใหม่</span>
+              </button>
+              <button type="button" class="branch-btn" data-branch="สาขาลำพูน" onclick="selectBranch('สาขาลำพูน')">
+                <span class="branch-icon">🏭</span>
+                <span>ลำพูน</span>
+              </button>
+              <button type="button" class="branch-btn" data-branch="สาขาลำปาง" onclick="selectBranch('สาขาลำปาง')">
+                <span class="branch-icon">⛰️</span>
+                <span>ลำปาง</span>
+              </button>
+              <button type="button" class="branch-btn" data-branch="สาขาบางพลี" onclick="selectBranch('สาขาบางพลี')">
+                <span class="branch-icon">🚚</span>
+                <span>บางพลี</span>
+              </button>
+              <button type="button" class="branch-btn" data-branch="สาขาระยอง" onclick="selectBranch('สาขาระยอง')">
+                <span class="branch-icon">🌊</span>
+                <span>ระยอง</span>
+              </button>
+              <button type="button" class="branch-btn" data-branch="ส่วนตัว" onclick="selectBranch('ส่วนตัว')">
+                <span class="branch-icon">👤</span>
+                <span>ส่วนตัว</span>
+              </button>
+            </div>
+            <input type="hidden" id="selectedBranch" value="สาขาเชียงใหม่">
+          </div>
+
+          <!-- 2. รูปแบบการจ่ายเงิน -->
+          <div class="form-group">
+            <label class="form-label">รูปแบบการจ่ายเงิน *</label>
+            <div class="payment-grid">
+              <button type="button" class="payment-btn selected-transfer" id="btnTransfer" onclick="selectPaymentMethod('เงินโอน')">
+                <span>📱</span> เงินโอน
+              </button>
+              <button type="button" class="payment-btn" id="btnCash" onclick="selectPaymentMethod('เงินสด')">
+                <span>💵</span> เงินสด
+              </button>
+            </div>
+            <input type="hidden" id="selectedPaymentMethod" value="เงินโอน">
+          </div>
+
+          <!-- 3. จำนวนเงิน -->
+          <div class="form-group">
+            <label class="form-label">จำนวนเงิน (บาท) *</label>
+            <div class="amount-input-box">
+              <span class="currency-sign">฿</span>
+              <input type="number" id="inputAmount" step="any" min="1" placeholder="0.00" required class="amount-input" inputmode="decimal">
+            </div>
+            <div class="quick-amounts">
+              <button type="button" class="quick-btn" onclick="addMoney(500)">+500</button>
+              <button type="button" class="quick-btn" onclick="addMoney(1000)">+1,000</button>
+              <button type="button" class="quick-btn" onclick="addMoney(3000)">+3,000</button>
+              <button type="button" class="quick-btn" onclick="addMoney(5000)">+5,000</button>
+              <button type="button" class="quick-btn" onclick="addMoney(10000)">+10,000</button>
+              <button type="button" class="quick-btn quick-clear" onclick="clearMoney()">ล้างยอด</button>
+            </div>
+          </div>
+
+          <!-- 4. วันที่ & หมวดหมู่ -->
+          <div class="form-group row-2">
+            <div>
+              <label class="form-label">วันที่ *</label>
+              <input type="date" id="inputDate" required class="form-input">
+            </div>
+            <div>
+              <label class="form-label">หมวดหมู่</label>
+              <select id="selectCategory" class="form-select">
+                <option value="ค่าน้ำมันเชื้อเพลิง">⛽ ค่าน้ำมัน</option>
+                <option value="ค่าซ่อมบำรุง / อะไหล่">🔧 ค่าซ่อม/อะไหล่</option>
+                <option value="ค่าแรง / เบี้ยเลี้ยง">👥 ค่าแรง/เบี้ยเลี้ยง</option>
+                <option value="ค่าทางด่วน / จอดรถ">🛣️ ทางด่วน/จอดรถ</option>
+                <option value="ค่าใช้จ่ายทั่วไป">📦 ค่าใช้จ่ายทั่วไป</option>
+                <option value="ค่าใช้จ่ายส่วนตัว">👤 ส่วนตัว</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 5. หมายเหตุ -->
+          <div class="form-group">
+            <label class="form-label">รายละเอียด / หมายเหตุ</label>
+            <input type="text" id="inputNote" placeholder="เช่น โอนค่าน้ำมันรถบัส 12, ค่าของใช้..." class="form-input">
+          </div>
+
+          <!-- SUBMIT -->
+          <button type="submit" class="btn-submit">
+            <span>💾 บันทึกค่าใช้จ่าย</span>
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- ================= TAB 2: DASHBOARD ================= -->
+    <div class="tab-content" id="tabContentDash">
+      
+      <div class="card" style="padding: 12px 16px;">
+        <div class="filter-bar">
+          <div class="time-pills">
+            <button type="button" class="pill-btn active" id="pToday" onclick="setTimeFilter('today')">วันนี้</button>
+            <button type="button" class="pill-btn" id="pMonth" onclick="setTimeFilter('this_month')">เดือนนี้</button>
+            <button type="button" class="pill-btn" id="pYear" onclick="setTimeFilter('this_year')">ปีนี้</button>
+            <button type="button" class="pill-btn" id="pAll" onclick="setTimeFilter('all')">ทั้งหมด</button>
+          </div>
+          <select id="filterDashBranch" onchange="renderDashboard()" class="form-select" style="width: auto; padding: 4px 8px; font-size: 11px;">
+            <option value="ALL">ทุกสาขา + ส่วนตัว</option>
+            <option value="สาขาเชียงใหม่">เชียงใหม่</option>
+            <option value="สาขาลำพูน">ลำพูน</option>
+            <option value="สาขาลำปาง">ลำปาง</option>
+            <option value="สาขาบางพลี">บางพลี</option>
+            <option value="สาขาระยอง">ระยอง</option>
+            <option value="ส่วนตัว">ส่วนตัว</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-label">ยอดใช้จ่ายรวม</div>
+          <div class="kpi-value" id="dashTotal" style="color: #0f172a;">฿0.00</div>
+          <div class="kpi-sub" id="dashCount">0 รายการ</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label" style="color: #2563eb;">จ่ายผ่านเงินโอน 📱</div>
+          <div class="kpi-value" id="dashTransfer" style="color: #1d4ed8;">฿0.00</div>
+          <div class="kpi-sub" id="dashTransferRatio">0%</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label" style="color: #d97706;">จ่ายเป็นเงินสด 💵</div>
+          <div class="kpi-value" id="dashCash" style="color: #b45309;">฿0.00</div>
+          <div class="kpi-sub" id="dashCashRatio">0%</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">ยอดเงินที่ใช้ไปแยกรายสาขา</div>
+        <div class="branch-stat-grid" id="branchStatGrid">
+          <!-- Rendered via JS -->
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ================= TAB 3: HISTORY ================= -->
+    <div class="tab-content" id="tabContentHist">
+      <div class="card">
+        <div class="card-title">ประวัติการลงรายการ</div>
+        
+        <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+          <input type="text" id="histSearch" oninput="renderHistoryList()" placeholder="ค้นหาสาขา, หมายเหตุ, ยอดเงิน..." class="form-input" style="font-size: 12px; padding: 8px 12px;">
+          <select id="histBranchFilter" onchange="renderHistoryList()" class="form-select" style="font-size: 12px; padding: 8px 6px; width: 110px;">
+            <option value="ALL">ทุกสาขา</option>
+            <option value="สาขาเชียงใหม่">เชียงใหม่</option>
+            <option value="สาขาลำพูน">ลำพูน</option>
+            <option value="สาขาลำปาง">ลำปาง</option>
+            <option value="สาขาบางพลี">บางพลี</option>
+            <option value="สาขาระยอง">ระยอง</option>
+            <option value="ส่วนตัว">ส่วนตัว</option>
+          </select>
+        </div>
+
+        <div id="historyListContainer" style="border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; background: #ffffff;">
+          <!-- List rendered via JS -->
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- MODAL: SETTINGS -->
+  <div class="modal-overlay" id="settingsModal">
+    <div class="modal-box">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+        <h3 style="font-size: 16px; font-weight: 700;">⚙️ สำรองข้อมูล & จัดการ</h3>
+        <button type="button" onclick="closeSettingsModal()" style="border: none; background: none; font-size: 20px; cursor: pointer;">✕</button>
+      </div>
+
+      <div style="font-size: 13px; color: #475569; margin-bottom: 16px;">
+        ข้อมูลบันทึกอยู่ในเครื่องนี้: <strong id="storageItemCount">0</strong> รายการ
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <button type="button" class="btn-header" onclick="exportBackupJSON()" style="padding: 10px; justify-content: center;">
+          ⬇️ ดาวน์โหลดไฟล์สำรอง (Backup JSON)
+        </button>
+
+        <label class="btn-header" style="padding: 10px; justify-content: center; cursor: pointer;">
+          ⬆️ นำเข้าไฟล์สำรอง (Restore)
+          <input type="file" accept=".json" onchange="importBackupJSON(event)" style="display: none;">
+        </label>
+
+        <button type="button" class="btn-header" onclick="loadSampleData()" style="padding: 10px; justify-content: center; background: #eff6ff; color: #1e40af; border-color: #bfdbfe;">
+          🧪 เติมข้อมูลตัวอย่างสำหรับทดสอบ
+        </button>
+
+        <button type="button" class="btn-header" onclick="clearAllData()" style="padding: 10px; justify-content: center; background: #fef2f2; color: #b91c1c; border-color: #fecaca; margin-top: 10px;">
+          ⚠️ ลบข้อมูลทั้งหมด
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div class="toast" id="toastBox">บันทึกสำเร็จ</div>
+
+  <script>
+    // In-memory array fallback if localStorage is sandboxed in LINE preview
+    let memoryStorage = [];
+    const STORAGE_KEY = 'branch_cash_app_data_v4';
+    let transactions = [];
+    let currentTimeFilter = 'today';
+
+    const BRANCHES = [
+      { id: 'สาขาเชียงใหม่', name: 'เชียงใหม่', icon: '🏢' },
+      { id: 'สาขาลำพูน', name: 'ลำพูน', icon: '🏭' },
+      { id: 'สาขาลำปาง', name: 'ลำปาง', icon: '⛰️' },
+      { id: 'สาขาบางพลี', name: 'บางพลี', icon: '🚚' },
+      { id: 'สาขาระยอง', name: 'ระยอง', icon: '🌊' },
+      { id: 'ส่วนตัว', name: 'ส่วนตัว', icon: '👤' },
+    ];
+
+    // Safe storage helper with memory fallback
+    function safeGetStorage() {
+      try {
+        if (typeof window.localStorage !== 'undefined' && window.localStorage !== null) {
+          const raw = window.localStorage.getItem(STORAGE_KEY);
+          if (raw) return JSON.parse(raw);
+        }
+      } catch (err) {
+        console.warn('localStorage access failed, using memory', err);
+      }
+      return memoryStorage;
+    }
+
+    function safeSetStorage(data) {
+      memoryStorage = data;
+      try {
+        if (typeof window.localStorage !== 'undefined' && window.localStorage !== null) {
+          window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        }
+      } catch (err) {
+        console.warn('localStorage write failed, using memory', err);
+      }
+    }
+
+    // INITIAL SETUP
+    function initApp() {
+      // Set date
+      const d = new Date();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const dateStr = `${d.getFullYear()}-${month}-${day}`;
+      const dateEl = document.getElementById('inputDate');
+      if (dateEl) dateEl.value = dateStr;
+
+      // Load data
+      transactions = safeGetStorage();
+      if (!transactions || transactions.length === 0) {
+        loadSampleData(false);
+      } else {
+        updateCounts();
+        renderDashboard();
+        renderHistoryList();
+      }
+    }
+
+    // BRANCH SELECTION
+    function selectBranch(branchId) {
+      document.getElementById('selectedBranch').value = branchId;
+      const btns = document.querySelectorAll('.branch-btn');
+      btns.forEach(btn => {
+        if (btn.getAttribute('data-branch') === branchId) {
+          btn.classList.add('selected');
+        } else {
+          btn.classList.remove('selected');
+        }
+      });
+    }
+
+    // PAYMENT METHOD
+    function selectPaymentMethod(method) {
+      document.getElementById('selectedPaymentMethod').value = method;
+      const bTransfer = document.getElementById('btnTransfer');
+      const bCash = document.getElementById('btnCash');
+      if (method === 'เงินโอน') {
+        bTransfer.className = 'payment-btn selected-transfer';
+        bCash.className = 'payment-btn';
+      } else {
+        bTransfer.className = 'payment-btn';
+        bCash.className = 'payment-btn selected-cash';
+      }
+    }
+
+    // MONEY HELPERS
+    function addMoney(amt) {
+      const el = document.getElementById('inputAmount');
+      const cur = parseFloat(el.value) || 0;
+      el.value = (cur + amt);
+    }
+    function clearMoney() {
+      document.getElementById('inputAmount').value = '';
+    }
+
+    function updateCounts() {
+      const countEl = document.getElementById('histCount');
+      if (countEl) countEl.innerText = transactions.length;
+      const storEl = document.getElementById('storageItemCount');
+      if (storEl) storEl.innerText = transactions.length;
+    }
+
+    // SAVE EXPENSE
+    function saveExpense(e) {
+      e.preventDefault();
+      const branch = document.getElementById('selectedBranch').value;
+      const method = document.getElementById('selectedPaymentMethod').value;
+      const amtEl = document.getElementById('inputAmount');
+      const amount = parseFloat(amtEl.value);
+      const date = document.getElementById('inputDate').value;
+      const category = document.getElementById('selectCategory').value;
+      const note = document.getElementById('inputNote').value.trim();
+
+      if (!amount || amount <= 0) {
+        showToast('กรุณาระบุจำนวนเงิน');
+        return;
+      }
+
+      const item = {
+        id: 't_' + Date.now(),
+        date: date,
+        branch: branch,
+        method: method,
+        amount: amount,
+        category: category,
+        note: note || '-'
+      };
+
+      transactions.unshift(item);
+      safeSetStorage(transactions);
+
+      amtEl.value = '';
+      document.getElementById('inputNote').value = '';
+
+      updateCounts();
+      renderDashboard();
+      renderHistoryList();
+      showToast(`บันทึก ${branch} ฿${amount.toLocaleString()} สำเร็จ`);
+    }
+
+    function deleteItem(id) {
+      if (confirm('ต้องการลบรายการนี้ใช่หรือไม่?')) {
+        transactions = transactions.filter(t => t.id !== id);
+        safeSetStorage(transactions);
+        updateCounts();
+        renderDashboard();
+        renderHistoryList();
+        showToast('ลบรายการแล้ว');
+      }
+    }
+
+    // TABS
+    function switchNavTab(tab) {
+      document.getElementById('tabBtnEntry').className = tab === 'entry' ? 'nav-tab active' : 'nav-tab';
+      document.getElementById('tabBtnDash').className = tab === 'dash' ? 'nav-tab active' : 'nav-tab';
+      document.getElementById('tabBtnHist').className = tab === 'hist' ? 'nav-tab active' : 'nav-tab';
+
+      document.getElementById('tabContentEntry').className = tab === 'entry' ? 'tab-content active' : 'tab-content';
+      document.getElementById('tabContentDash').className = tab === 'dash' ? 'tab-content active' : 'tab-content';
+      document.getElementById('tabContentHist').className = tab === 'hist' ? 'tab-content active' : 'tab-content';
+
+      if (tab === 'dash') renderDashboard();
+      if (tab === 'hist') renderHistoryList();
+    }
+
+    // DASHBOARD
+    function setTimeFilter(filter) {
+      currentTimeFilter = filter;
+      document.getElementById('pToday').className = filter === 'today' ? 'pill-btn active' : 'pill-btn';
+      document.getElementById('pMonth').className = filter === 'this_month' ? 'pill-btn active' : 'pill-btn';
+      document.getElementById('pYear').className = filter === 'this_year' ? 'pill-btn active' : 'pill-btn';
+      document.getElementById('pAll').className = filter === 'all' ? 'pill-btn active' : 'pill-btn';
+      renderDashboard();
+    }
+
+    function renderDashboard() {
+      const branchFilter = document.getElementById('filterDashBranch').value;
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth();
+      const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+
+      let filtered = transactions.filter(t => {
+        const tDate = new Date(t.date);
+        let timeMatch = true;
+        if (currentTimeFilter === 'today') timeMatch = t.date === todayStr;
+        else if (currentTimeFilter === 'this_month') timeMatch = (tDate.getFullYear() === currentYear && tDate.getMonth() === currentMonth);
+        else if (currentTimeFilter === 'this_year') timeMatch = tDate.getFullYear() === currentYear;
+
+        let branchMatch = branchFilter === 'ALL' || t.branch === branchFilter;
+        return timeMatch && branchMatch;
+      });
+
+      let total = 0, transfer = 0, cash = 0;
+      const branchMap = {};
+      BRANCHES.forEach(b => branchMap[b.id] = { total: 0, transfer: 0, cash: 0 });
+
+      filtered.forEach(t => {
+        total += t.amount;
+        if (t.method === 'เงินสด') cash += t.amount;
+        else transfer += t.amount;
+
+        if (branchMap[t.branch]) {
+          branchMap[t.branch].total += t.amount;
+          if (t.method === 'เงินสด') branchMap[t.branch].cash += t.amount;
+          else branchMap[t.branch].transfer += t.amount;
+        }
+      });
+
+      const transferPct = total > 0 ? Math.round((transfer / total) * 100) : 0;
+      const cashPct = total > 0 ? Math.round((cash / total) * 100) : 0;
+
+      document.getElementById('dashTotal').innerText = '฿' + total.toLocaleString('en-US', { minimumFractionDigits: 2 });
+      document.getElementById('dashCount').innerText = `${filtered.length} รายการ`;
+      document.getElementById('dashTransfer').innerText = '฿' + transfer.toLocaleString('en-US', { minimumFractionDigits: 2 });
+      document.getElementById('dashTransferRatio').innerText = `${transferPct}% ของยอดรวม`;
+      document.getElementById('dashCash').innerText = '฿' + cash.toLocaleString('en-US', { minimumFractionDigits: 2 });
+      document.getElementById('dashCashRatio').innerText = `${cashPct}% ของยอดรวม`;
+
+      const container = document.getElementById('branchStatGrid');
+      if (container) {
+        container.innerHTML = BRANCHES.map(b => {
+          const stat = branchMap[b.id];
+          return `
+            <div class="branch-stat-card">
+              <div class="branch-stat-name">${b.icon} ${b.name}</div>
+              <div class="branch-stat-row">
+                <span style="color: #64748b;">โอน:</span>
+                <span style="color: #2563eb; font-weight: 600;">฿${stat.transfer.toLocaleString()}</span>
+              </div>
+              <div class="branch-stat-row">
+                <span style="color: #64748b;">สด:</span>
+                <span style="color: #d97706; font-weight: 600;">฿${stat.cash.toLocaleString()}</span>
+              </div>
+              <div class="branch-stat-row branch-stat-total">
+                <span>รวม:</span>
+                <span>฿${stat.total.toLocaleString()}</span>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+    }
+
+    // HISTORY LIST
+    function renderHistoryList() {
+      const search = (document.getElementById('histSearch').value || '').toLowerCase();
+      const branchFilter = document.getElementById('histBranchFilter').value;
+      const container = document.getElementById('historyListContainer');
+      if (!container) return;
+
+      const filtered = transactions.filter(t => {
+        const textMatch = t.branch.toLowerCase().includes(search) ||
+                          (t.note || '').toLowerCase().includes(search) ||
+                          (t.category || '').toLowerCase().includes(search) ||
+                          t.amount.toString().includes(search);
+        const branchMatch = branchFilter === 'ALL' || t.branch === branchFilter;
+        return textMatch && branchMatch;
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = `<div style="padding: 24px; text-align: center; color: #94a3b8; font-size: 13px;">ยังไม่มีรายการ หรือไม่พบข้อมูล</div>`;
+        return;
+      }
+
+      container.innerHTML = filtered.map(t => {
+        const isTransfer = t.method === 'เงินโอน';
+        return `
+          <div class="history-item">
+            <div class="h-left">
+              <div class="h-branch">
+                ${t.branch}
+                <span class="h-tag ${isTransfer ? 'tag-transfer' : 'tag-cash'}">
+                  ${isTransfer ? '📱 โอน' : '💵 สด'}
+                </span>
+              </div>
+              <div class="h-desc">${t.category} • ${t.note}</div>
+              <div class="h-date">${t.date}</div>
+            </div>
+            <div class="h-right">
+              <div class="h-amount">฿${t.amount.toLocaleString()}</div>
+              <button type="button" class="btn-del" onclick="deleteItem('${t.id}')" title="ลบ">🗑️</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // EXCEL EXPORT
+    function exportToExcel() {
+      if (transactions.length === 0) {
+        showToast('ยังไม่มีข้อมูลสำหรับส่งออก');
+        return;
+      }
+      let csv = '\uFEFFวันที่,สาขา,ช่องทาง,หมวดหมู่,รายละเอียด,จำนวนเงิน(บาท)\n';
+      transactions.forEach(t => {
+        const cleanNote = (t.note || '').replace(/"/g, '""');
+        csv += `"${t.date}","${t.branch}","${t.method}","${t.category}","${cleanNote}","${t.amount}"\n`;
+      });
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `BranchCash_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      showToast('ดาวน์โหลดไฟล์ Excel เรียบร้อย');
+    }
+
+    // BACKUP & RESTORE
+    function exportBackupJSON() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(transactions, null, 2));
+      const a = document.createElement('a');
+      a.href = dataStr;
+      a.download = `BranchCash_Backup_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+
+    function importBackupJSON(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        try {
+          const list = JSON.parse(evt.target.result);
+          if (Array.isArray(list)) {
+            transactions = list;
+            safeSetStorage(transactions);
+            updateCounts();
+            renderDashboard();
+            renderHistoryList();
+            closeSettingsModal();
+            showToast('นำเข้าข้อมูลสำเร็จ ' + transactions.length + ' รายการ');
+          }
+        } catch(err) {
+          alert('ไฟล์ไม่ถูกต้อง');
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function loadSampleData(showToastMsg = true) {
+      const d = new Date();
+      const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      transactions = [
+        { id: 's1', date: today, branch: 'สาขาเชียงใหม่', method: 'เงินโอน', amount: 3500, category: 'ค่าน้ำมันเชื้อเพลิง', note: 'ค่าน้ำมันรถบัส 12' },
+        { id: 's2', date: today, branch: 'สาขาลำพูน', method: 'เงินสด', amount: 1200, category: 'ค่าแรง / เบี้ยเลี้ยง', note: 'ค่าเบี้ยเลี้ยงคนขับ' },
+        { id: 's3', date: today, branch: 'สาขาบางพลี', method: 'เงินโอน', amount: 8500, category: 'ค่าซ่อมบำรุง / อะไหล่', note: 'เปลี่ยนผ้าเบรก' },
+        { id: 's4', date: today, branch: 'สาขาลำปาง', method: 'เงินสด', amount: 2000, category: 'ค่าใช้จ่ายทั่วไป', note: 'ของใช้สำนักงาน' },
+        { id: 's5', date: today, branch: 'สาขาระยอง', method: 'เงินโอน', amount: 4500, category: 'ค่าน้ำมันเชื้อเพลิง', note: 'รับส่งงานนิคม' },
+        { id: 's6', date: today, branch: 'ส่วนตัว', method: 'เงินโอน', amount: 1500, category: 'ค่าใช้จ่ายส่วนตัว', note: 'ของใช้ส่วนตัว' }
+      ];
+      safeSetStorage(transactions);
+      updateCounts();
+      renderDashboard();
+      renderHistoryList();
+      if (showToastMsg) {
+        closeSettingsModal();
+        showToast('โหลดข้อมูลตัวอย่างแล้ว');
+      }
+    }
+
+    function clearAllData() {
+      if (confirm('คุณแน่ใจว่าต้องการลบข้อมูลทั้งหมด?')) {
+        transactions = [];
+        safeSetStorage(transactions);
+        updateCounts();
+        renderDashboard();
+        renderHistoryList();
+        closeSettingsModal();
+        showToast('ลบข้อมูลทั้งหมดแล้ว');
+      }
+    }
+
+    function openSettingsModal() {
+      document.getElementById('settingsModal').classList.add('active');
+    }
+    function closeSettingsModal() {
+      document.getElementById('settingsModal').classList.remove('active');
+    }
+
+    function showToast(text) {
+      const t = document.getElementById('toastBox');
+      t.innerText = text;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2500);
+    }
+
+    // Run initialization
+    initApp();
+  </script>
+</body>
+</html>
