@@ -668,6 +668,8 @@
               <label class="form-label">หมวดหมู่</label>
               <select id="selectCategory" class="form-select">
                 <option value="ค่าน้ำมันเชื้อเพลิง">⛽ ค่าน้ำมัน</option>
+                <option value="ค่างวด">🚘 ค่างวด</option>
+                <option value="ขนส่ง/พรบ/ประกัน">📄 ขนส่ง/พรบ/ประกัน</option>
                 <option value="ค่าซ่อมบำรุง / อะไหล่">🔧 ค่าซ่อม/อะไหล่</option>
                 <option value="ค่าแรง / เบี้ยเลี้ยง">👥 ค่าแรง/เบี้ยเลี้ยง</option>
                 <option value="ค่าทางด่วน / จอดรถ">🛣️ ทางด่วน/จอดรถ</option>
@@ -773,6 +775,90 @@
     </div>
 
   </main>
+
+  <!-- ================= MODAL: EDIT EXPENSE ================= -->
+  <div class="modal-overlay" id="editModal">
+    <div class="modal-box">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+        <h3 style="font-size: 16px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 6px;">
+          <span>✏️</span> แก้ไขรายการค่าใช้จ่าย
+        </h3>
+        <button type="button" onclick="closeEditModal()" style="border: none; background: none; font-size: 20px; cursor: pointer; color: #64748b;">✕</button>
+      </div>
+
+      <form id="editExpenseForm" onsubmit="saveEditExpense(event)">
+        <input type="hidden" id="editId">
+
+        <!-- 1. สาขา -->
+        <div class="form-group">
+          <label class="form-label">สาขา *</label>
+          <select id="editBranch" class="form-select" required style="font-size: 14px; font-weight: 600;">
+            <option value="สาขาเชียงใหม่">🏢 เชียงใหม่</option>
+            <option value="สาขาลำพูน">🏭 ลำพูน</option>
+            <option value="สาขาลำปาง">⛰️ ลำปาง</option>
+            <option value="สาขาบางพลี">🚚 บางพลี</option>
+            <option value="สาขาระยอง">🌊 ระยอง</option>
+            <option value="ส่วนตัว">👤 ส่วนตัว</option>
+          </select>
+        </div>
+
+        <!-- 2. รูปแบบการจ่าย -->
+        <div class="form-group">
+          <label class="form-label">รูปแบบการจ่ายเงิน *</label>
+          <div class="payment-grid">
+            <button type="button" class="payment-btn" id="btnEditTransfer" onclick="selectEditPaymentMethod('เงินโอน')">
+              <span>📱</span> เงินโอน
+            </button>
+            <button type="button" class="payment-btn" id="btnEditCash" onclick="selectEditPaymentMethod('เงินสด')">
+              <span>💵</span> เงินสด
+            </button>
+          </div>
+          <input type="hidden" id="editPaymentMethod" value="เงินโอน">
+        </div>
+
+        <!-- 3. จำนวนเงิน -->
+        <div class="form-group">
+          <label class="form-label">จำนวนเงิน (บาท) *</label>
+          <div class="amount-input-box">
+            <span class="currency-sign">฿</span>
+            <input type="number" id="editAmount" step="any" min="1" placeholder="0.00" required class="amount-input" inputmode="decimal">
+          </div>
+        </div>
+
+        <!-- 4. วันที่ & หมวดหมู่ -->
+        <div class="form-group row-2">
+          <div>
+            <label class="form-label">วันที่ *</label>
+            <input type="date" id="editDate" required class="form-input">
+          </div>
+          <div>
+            <label class="form-label">หมวดหมู่</label>
+            <select id="editCategory" class="form-select">
+              <option value="ค่าน้ำมันเชื้อเพลิง">⛽ ค่าน้ำมัน</option>
+              <option value="ค่างวด">🚘 ค่างวด</option>
+              <option value="ขนส่ง/พรบ/ประกัน">📄 ขนส่ง/พรบ/ประกัน</option>
+              <option value="ค่าซ่อมบำรุง / อะไหล่">🔧 ค่าซ่อม/อะไหล่</option>
+              <option value="ค่าแรง / เบี้ยเลี้ยง">👥 ค่าแรง/เบี้ยเลี้ยง</option>
+              <option value="ค่าทางด่วน / จอดรถ">🛣️ ทางด่วน/จอดรถ</option>
+              <option value="ค่าใช้จ่ายทั่วไป">📦 ค่าใช้จ่ายทั่วไป</option>
+              <option value="ค่าใช้จ่ายส่วนตัว">👤 ส่วนตัว</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 5. หมายเหตุ -->
+        <div class="form-group">
+          <label class="form-label">รายละเอียด / หมายเหตุ</label>
+          <input type="text" id="editNote" placeholder="รายละเอียดค่าใช้จ่าย..." class="form-input">
+        </div>
+
+        <!-- ปุ่มบันทึก -->
+        <button type="submit" class="btn-submit" style="background: #2563eb;">
+          <span>💾 บันทึกการแก้ไข</span>
+        </button>
+      </form>
+    </div>
+  </div>
 
   <!-- ================= MODAL 1: EXPORT EXCEL BY BRANCH ================= -->
   <div class="modal-overlay" id="exportModal">
@@ -1144,6 +1230,7 @@
             </div>
             <div class="h-right">
               <div class="h-amount">฿${t.amount.toLocaleString()}</div>
+              <button type="button" class="btn-del" onclick="openEditModal('${t.id}')" title="แก้ไข" style="color: #2563eb; font-size: 15px; margin-right: 2px;">✏️</button>
               <button type="button" class="btn-del" onclick="deleteItem('${t.id}')" title="ลบ">🗑️</button>
             </div>
           </div>
@@ -1151,7 +1238,77 @@
       }).join('');
     }
 
-    // ================= EXPORT BY BRANCH LOGIC =================
+
+    // ================= EDIT EXPENSE LOGIC =================
+    function openEditModal(id) {
+      const item = transactions.find(t => t.id === id);
+      if (!item) return;
+
+      document.getElementById('editId').value = item.id;
+      document.getElementById('editBranch').value = item.branch;
+      selectEditPaymentMethod(item.method || 'เงินโอน');
+      document.getElementById('editAmount').value = item.amount;
+      document.getElementById('editDate').value = item.date;
+      document.getElementById('editCategory').value = item.category || 'ค่าใช้จ่ายทั่วไป';
+      document.getElementById('editNote').value = item.note === '-' ? '' : (item.note || '');
+
+      document.getElementById('editModal').classList.add('active');
+    }
+
+    function closeEditModal() {
+      document.getElementById('editModal').classList.remove('active');
+    }
+
+    function selectEditPaymentMethod(method) {
+      document.getElementById('editPaymentMethod').value = method;
+      const bTransfer = document.getElementById('btnEditTransfer');
+      const bCash = document.getElementById('btnEditCash');
+      if (method === 'เงินโอน') {
+        bTransfer.className = 'payment-btn selected-transfer';
+        bCash.className = 'payment-btn';
+      } else {
+        bTransfer.className = 'payment-btn';
+        bCash.className = 'payment-btn selected-cash';
+      }
+    }
+
+    function saveEditExpense(e) {
+      e.preventDefault();
+      const id = document.getElementById('editId').value;
+      const branch = document.getElementById('editBranch').value;
+      const method = document.getElementById('editPaymentMethod').value;
+      const amount = parseFloat(document.getElementById('editAmount').value);
+      const date = document.getElementById('editDate').value;
+      const category = document.getElementById('editCategory').value;
+      const note = document.getElementById('editNote').value.trim();
+
+      if (!amount || amount <= 0) {
+        alert('กรุณาระบุจำนวนเงินที่ถูกต้อง');
+        return;
+      }
+
+      const index = transactions.findIndex(t => t.id === id);
+      if (index !== -1) {
+        transactions[index] = {
+          ...transactions[index],
+          branch: branch,
+          method: method,
+          amount: amount,
+          date: date,
+          category: category,
+          note: note || '-'
+        };
+
+        safeSetStorage(transactions);
+        updateCounts();
+        renderDashboard();
+        renderHistoryList();
+        closeEditModal();
+        showToast('แก้ไขข้อมูลเรียบร้อยแล้ว');
+      }
+    }
+
+        // ================= EXPORT BY BRANCH LOGIC =================
     function openExportModal() {
       document.getElementById('exportModal').classList.add('active');
       updateExportPreview();
