@@ -68,12 +68,18 @@
     .btn-header {
       background: #f8fafc;
       border: 1px solid #cbd5e1;
-      padding: 6px 12px;
-      border-radius: 8px;
+      padding: 7px 12px;
+      border-radius: 10px;
       font-size: 12px;
       font-weight: 600;
       color: #334155;
       cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .btn-header:active {
+      transform: scale(0.97);
     }
     .btn-excel {
       background: #ecfdf5;
@@ -131,6 +137,9 @@
       font-weight: 700;
       margin-bottom: 14px;
       color: #0f172a;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
 
     .form-group {
@@ -145,7 +154,7 @@
       text-transform: uppercase;
     }
 
-    /* BRANCH GRID (HARDCODED HTML - ไม่ต้องรอ JS) */
+    /* BRANCH GRID */
     .branch-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -302,6 +311,7 @@
     }
     .btn-submit:active {
       background: #1d4ed8;
+      transform: scale(0.99);
     }
 
     /* KPI */
@@ -360,6 +370,13 @@
       border: 1px solid #e2e8f0;
       border-radius: 12px;
       padding: 10px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .branch-stat-card:hover {
+      border-color: #3b82f6;
+      background: #ffffff;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
     }
     .branch-stat-name {
       font-size: 12px;
@@ -395,6 +412,7 @@
     .time-pills {
       display: flex;
       gap: 4px;
+      overflow-x: auto;
     }
     .pill-btn {
       padding: 6px 10px;
@@ -405,6 +423,7 @@
       font-weight: 600;
       color: #475569;
       cursor: pointer;
+      white-space: nowrap;
     }
     .pill-btn.active {
       background: #2563eb;
@@ -521,9 +540,10 @@
     .modal-box {
       background: #ffffff;
       width: 100%;
-      max-width: 400px;
+      max-width: 440px;
       border-radius: 20px;
       padding: 20px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
     }
 
     .tab-content {
@@ -547,8 +567,13 @@
         </div>
       </div>
       <div class="header-actions">
-        <button type="button" class="btn-header btn-excel" onclick="exportToExcel()">📊 Excel</button>
-        <button type="button" class="btn-header" onclick="openSettingsModal()">⚙️ สำรอง</button>
+        <!-- ปุ่มเปิดหน้าต่างส่งออก Excel ตามสาขา -->
+        <button type="button" class="btn-header btn-excel" onclick="openExportModal()">
+          <span>📊</span> ส่งออก Excel
+        </button>
+        <button type="button" class="btn-header" onclick="openSettingsModal()">
+          <span>⚙️</span> สำรอง
+        </button>
       </div>
     </div>
   </header>
@@ -570,32 +595,32 @@
 
         <form id="expenseForm" onsubmit="saveExpense(event)">
           
-          <!-- 1. เลือกสาขา (ปุ่มฝังใน HTML ถาวร 100% ไม่หายแน่นอน) -->
+          <!-- 1. เลือกสาขา (ปุ่มฝังใน HTML ถาวร 100%) -->
           <div class="form-group">
             <label class="form-label">เลือกสาขา *</label>
             <div class="branch-grid" id="branchGrid">
               <button type="button" class="branch-btn selected" data-branch="สาขาเชียงใหม่" onclick="selectBranch('สาขาเชียงใหม่')">
-                <span class="branch-icon">🏢</span>
+                <span style="font-size: 16px;">🏢</span>
                 <span>เชียงใหม่</span>
               </button>
               <button type="button" class="branch-btn" data-branch="สาขาลำพูน" onclick="selectBranch('สาขาลำพูน')">
-                <span class="branch-icon">🏭</span>
+                <span style="font-size: 16px;">🏭</span>
                 <span>ลำพูน</span>
               </button>
               <button type="button" class="branch-btn" data-branch="สาขาลำปาง" onclick="selectBranch('สาขาลำปาง')">
-                <span class="branch-icon">⛰️</span>
+                <span style="font-size: 16px;">⛰️</span>
                 <span>ลำปาง</span>
               </button>
               <button type="button" class="branch-btn" data-branch="สาขาบางพลี" onclick="selectBranch('สาขาบางพลี')">
-                <span class="branch-icon">🚚</span>
+                <span style="font-size: 16px;">🚚</span>
                 <span>บางพลี</span>
               </button>
               <button type="button" class="branch-btn" data-branch="สาขาระยอง" onclick="selectBranch('สาขาระยอง')">
-                <span class="branch-icon">🌊</span>
+                <span style="font-size: 16px;">🌊</span>
                 <span>ระยอง</span>
               </button>
               <button type="button" class="branch-btn" data-branch="ส่วนตัว" onclick="selectBranch('ส่วนตัว')">
-                <span class="branch-icon">👤</span>
+                <span style="font-size: 16px;">👤</span>
                 <span>ส่วนตัว</span>
               </button>
             </div>
@@ -677,15 +702,17 @@
             <button type="button" class="pill-btn" id="pYear" onclick="setTimeFilter('this_year')">ปีนี้</button>
             <button type="button" class="pill-btn" id="pAll" onclick="setTimeFilter('all')">ทั้งหมด</button>
           </div>
-          <select id="filterDashBranch" onchange="renderDashboard()" class="form-select" style="width: auto; padding: 4px 8px; font-size: 11px;">
-            <option value="ALL">ทุกสาขา + ส่วนตัว</option>
-            <option value="สาขาเชียงใหม่">เชียงใหม่</option>
-            <option value="สาขาลำพูน">ลำพูน</option>
-            <option value="สาขาลำปาง">ลำปาง</option>
-            <option value="สาขาบางพลี">บางพลี</option>
-            <option value="สาขาระยอง">ระยอง</option>
-            <option value="ส่วนตัว">ส่วนตัว</option>
-          </select>
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <select id="filterDashBranch" onchange="renderDashboard()" class="form-select" style="width: auto; padding: 5px 8px; font-size: 11px;">
+              <option value="ALL">ทุกสาขา + ส่วนตัว</option>
+              <option value="สาขาเชียงใหม่">เชียงใหม่</option>
+              <option value="สาขาลำพูน">ลำพูน</option>
+              <option value="สาขาลำปาง">ลำปาง</option>
+              <option value="สาขาบางพลี">บางพลี</option>
+              <option value="สาขาระยอง">ระยอง</option>
+              <option value="ส่วนตัว">ส่วนตัว</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -708,7 +735,12 @@
       </div>
 
       <div class="card">
-        <div class="card-title">ยอดเงินที่ใช้ไปแยกรายสาขา</div>
+        <div class="card-title">
+          <span>ยอดเงินที่ใช้ไปแยกรายสาขา</span>
+          <button type="button" onclick="openExportModal()" style="font-size: 11px; padding: 4px 8px; border: 1px solid #cbd5e1; background: #f8fafc; border-radius: 6px; cursor: pointer; color: #1e40af;">
+            📥 ส่งออกไฟล์
+          </button>
+        </div>
         <div class="branch-stat-grid" id="branchStatGrid">
           <!-- Rendered via JS -->
         </div>
@@ -742,7 +774,63 @@
 
   </main>
 
-  <!-- MODAL: SETTINGS -->
+  <!-- ================= MODAL 1: EXPORT EXCEL BY BRANCH ================= -->
+  <div class="modal-overlay" id="exportModal">
+    <div class="modal-box">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+        <h3 style="font-size: 16px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 6px;">
+          <span>📊</span> ส่งออกไฟล์สรุปยอด Excel
+        </h3>
+        <button type="button" onclick="closeExportModal()" style="border: none; background: none; font-size: 20px; cursor: pointer; color: #64748b;">✕</button>
+      </div>
+
+      <!-- 1. เลือกสาขาที่ต้องการส่งออก -->
+      <div class="form-group">
+        <label class="form-label">เลือกสาขาที่ต้องการส่งออก *</label>
+        <select id="exportBranchSelect" onchange="updateExportPreview()" class="form-select" style="font-size: 14px; padding: 10px 12px; font-weight: 700; color: #1e3a8a;">
+          <option value="ALL">📁 ทุกสาขา (รวมทั้งหมด)</option>
+          <option value="สาขาเชียงใหม่">🏢 สาขาเชียงใหม่</option>
+          <option value="สาขาลำพูน">🏭 สาขาลำพูน</option>
+          <option value="สาขาลำปาง">⛰️ สาขาลำปาง</option>
+          <option value="สาขาบางพลี">🚚 สาขาบางพลี</option>
+          <option value="สาขาระยอง">🌊 สาขาระยอง</option>
+          <option value="ส่วนตัว">👤 ส่วนตัว</option>
+        </select>
+      </div>
+
+      <!-- 2. เลือกช่วงเวลาที่ต้องการส่งออก -->
+      <div class="form-group">
+        <label class="form-label">เลือกช่วงเวลา</label>
+        <select id="exportTimeSelect" onchange="updateExportPreview()" class="form-select" style="font-size: 13px; padding: 9px 12px;">
+          <option value="all">🗓️ ทั้งหมดทุกช่วงเวลา</option>
+          <option value="this_month" selected>🗓️ เฉพาะเดือนนี้ (รายเดือน)</option>
+          <option value="today">📅 เฉพาะวันนี้ (รายวัน)</option>
+          <option value="this_year">📊 เฉพาะปีนี้ (รายปี)</option>
+        </select>
+      </div>
+
+      <!-- 3. กล่องพรีวิวสรุปยอดก่อนดาวน์โหลด -->
+      <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 14px; padding: 14px; margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">สรุปยอดนำส่งไฟล์:</span>
+          <span id="exportPreviewTarget" style="font-size: 11px; font-weight: 700; color: #2563eb; background: #eff6ff; padding: 2px 8px; border-radius: 6px;">ทุกสาขา</span>
+        </div>
+        <div style="font-size: 24px; font-weight: 800; color: #0f172a; margin: 4px 0;" id="exportPreviewTotal">฿0.00</div>
+        <div style="font-size: 12px; color: #475569; display: flex; justify-content: space-between;" id="exportPreviewSub">
+          <span>โอน: ฿0</span>
+          <span>สด: ฿0</span>
+        </div>
+        <div style="font-size: 11px; color: #94a3b8; margin-top: 4px;" id="exportPreviewCount">จำนวน 0 รายการ</div>
+      </div>
+
+      <!-- 4. ปุ่มกดยืนยันดาวน์โหลด -->
+      <button type="button" class="btn-submit" onclick="executeExcelExport()" style="background: #059669; box-shadow: 0 4px 12px rgba(5,150,105,0.25);">
+        <span>📥 ดาวน์โหลดไฟล์ Excel เฉพาะสาขานี้</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ================= MODAL 2: SETTINGS ================= -->
   <div class="modal-overlay" id="settingsModal">
     <div class="modal-box">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
@@ -779,7 +867,6 @@
   <div class="toast" id="toastBox">บันทึกสำเร็จ</div>
 
   <script>
-    // In-memory array fallback if localStorage is sandboxed in LINE preview
     let memoryStorage = [];
     const STORAGE_KEY = 'branch_cash_app_data_v4';
     let transactions = [];
@@ -794,7 +881,6 @@
       { id: 'ส่วนตัว', name: 'ส่วนตัว', icon: '👤' },
     ];
 
-    // Safe storage helper with memory fallback
     function safeGetStorage() {
       try {
         if (typeof window.localStorage !== 'undefined' && window.localStorage !== null) {
@@ -818,9 +904,7 @@
       }
     }
 
-    // INITIAL SETUP
     function initApp() {
-      // Set date
       const d = new Date();
       const month = String(d.getMonth() + 1).padStart(2, '0');
       const day = String(d.getDate()).padStart(2, '0');
@@ -828,7 +912,6 @@
       const dateEl = document.getElementById('inputDate');
       if (dateEl) dateEl.value = dateStr;
 
-      // Load data
       transactions = safeGetStorage();
       if (!transactions || transactions.length === 0) {
         loadSampleData(false);
@@ -839,7 +922,6 @@
       }
     }
 
-    // BRANCH SELECTION
     function selectBranch(branchId) {
       document.getElementById('selectedBranch').value = branchId;
       const btns = document.querySelectorAll('.branch-btn');
@@ -852,7 +934,6 @@
       });
     }
 
-    // PAYMENT METHOD
     function selectPaymentMethod(method) {
       document.getElementById('selectedPaymentMethod').value = method;
       const bTransfer = document.getElementById('btnTransfer');
@@ -866,7 +947,6 @@
       }
     }
 
-    // MONEY HELPERS
     function addMoney(amt) {
       const el = document.getElementById('inputAmount');
       const cur = parseFloat(el.value) || 0;
@@ -883,7 +963,6 @@
       if (storEl) storEl.innerText = transactions.length;
     }
 
-    // SAVE EXPENSE
     function saveExpense(e) {
       e.preventDefault();
       const branch = document.getElementById('selectedBranch').value;
@@ -932,7 +1011,6 @@
       }
     }
 
-    // TABS
     function switchNavTab(tab) {
       document.getElementById('tabBtnEntry').className = tab === 'entry' ? 'nav-tab active' : 'nav-tab';
       document.getElementById('tabBtnDash').className = tab === 'dash' ? 'nav-tab active' : 'nav-tab';
@@ -946,7 +1024,6 @@
       if (tab === 'hist') renderHistoryList();
     }
 
-    // DASHBOARD
     function setTimeFilter(filter) {
       currentTimeFilter = filter;
       document.getElementById('pToday').className = filter === 'today' ? 'pill-btn active' : 'pill-btn';
@@ -1005,8 +1082,11 @@
         container.innerHTML = BRANCHES.map(b => {
           const stat = branchMap[b.id];
           return `
-            <div class="branch-stat-card">
-              <div class="branch-stat-name">${b.icon} ${b.name}</div>
+            <div class="branch-stat-card" onclick="openExportModalWithBranch('${b.id}')" title="คลิกเพื่อส่งออกเฉพาะ ${b.name}">
+              <div class="branch-stat-name">
+                <span>${b.icon} ${b.name}</span>
+                <span style="font-size: 10px; color: #2563eb; font-weight: normal;">📥 ส่งออก</span>
+              </div>
               <div class="branch-stat-row">
                 <span style="color: #64748b;">โอน:</span>
                 <span style="color: #2563eb; font-weight: 600;">฿${stat.transfer.toLocaleString()}</span>
@@ -1025,7 +1105,6 @@
       }
     }
 
-    // HISTORY LIST
     function renderHistoryList() {
       const search = (document.getElementById('histSearch').value || '').toLowerCase();
       const branchFilter = document.getElementById('histBranchFilter').value;
@@ -1069,26 +1148,119 @@
       }).join('');
     }
 
-    // EXCEL EXPORT
-    function exportToExcel() {
-      if (transactions.length === 0) {
-        showToast('ยังไม่มีข้อมูลสำหรับส่งออก');
+    // ================= EXPORT BY BRANCH LOGIC =================
+    function openExportModal() {
+      document.getElementById('exportModal').classList.add('active');
+      updateExportPreview();
+    }
+
+    function openExportModalWithBranch(branchId) {
+      const select = document.getElementById('exportBranchSelect');
+      if (select) {
+        select.value = branchId;
+      }
+      openExportModal();
+    }
+
+    function closeExportModal() {
+      document.getElementById('exportModal').classList.remove('active');
+    }
+
+    function getExportFilteredData() {
+      const selectedBranch = document.getElementById('exportBranchSelect').value;
+      const selectedTime = document.getElementById('exportTimeSelect').value;
+
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth();
+      const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+
+      return transactions.filter(t => {
+        const tDate = new Date(t.date);
+        let timeMatch = true;
+        if (selectedTime === 'today') timeMatch = t.date === todayStr;
+        else if (selectedTime === 'this_month') timeMatch = (tDate.getFullYear() === currentYear && tDate.getMonth() === currentMonth);
+        else if (selectedTime === 'this_year') timeMatch = tDate.getFullYear() === currentYear;
+
+        let branchMatch = selectedBranch === 'ALL' || t.branch === selectedBranch;
+        return timeMatch && branchMatch;
+      });
+    }
+
+    function updateExportPreview() {
+      const branch = document.getElementById('exportBranchSelect').value;
+      const targetLabel = document.getElementById('exportPreviewTarget');
+      targetLabel.innerText = branch === 'ALL' ? 'ทุกสาขา' : branch;
+
+      const filtered = getExportFilteredData();
+      let total = 0, transfer = 0, cash = 0;
+      filtered.forEach(t => {
+        total += t.amount;
+        if (t.method === 'เงินสด') cash += t.amount;
+        else transfer += t.amount;
+      });
+
+      document.getElementById('exportPreviewTotal').innerText = '฿' + total.toLocaleString('en-US', { minimumFractionDigits: 2 });
+      document.getElementById('exportPreviewSub').innerHTML = `<span>โอน: ฿${transfer.toLocaleString()}</span><span>สด: ฿${cash.toLocaleString()}</span>`;
+      document.getElementById('exportPreviewCount').innerText = `จำนวน ${filtered.length} รายการ`;
+    }
+
+    function executeExcelExport() {
+      const filtered = getExportFilteredData();
+      const selectedBranch = document.getElementById('exportBranchSelect').value;
+      const selectedTime = document.getElementById('exportTimeSelect').value;
+
+      if (filtered.length === 0) {
+        alert('ไม่พบรายการข้อมูลตามสาขาและช่วงเวลาที่เลือก');
         return;
       }
-      let csv = '\uFEFFวันที่,สาขา,ช่องทาง,หมวดหมู่,รายละเอียด,จำนวนเงิน(บาท)\n';
-      transactions.forEach(t => {
-        const cleanNote = (t.note || '').replace(/"/g, '""');
-        csv += `"${t.date}","${t.branch}","${t.method}","${t.category}","${cleanNote}","${t.amount}"\n`;
+
+      let total = 0, transfer = 0, cash = 0;
+      filtered.forEach(t => {
+        total += t.amount;
+        if (t.method === 'เงินสด') cash += t.amount;
+        else transfer += t.amount;
       });
+
+      const branchNameText = selectedBranch === 'ALL' ? 'ทุกสาขา' : selectedBranch;
+      let timeText = 'ทั้งหมด';
+      if (selectedTime === 'today') timeText = 'วันนี้';
+      if (selectedTime === 'this_month') timeText = 'เดือนนี้';
+      if (selectedTime === 'this_year') timeText = 'ปีนี้';
+
+      // Prepare CSV Content with Summary Header + Items Table
+      let csv = '\uFEFF';
+      csv += `"รายงานสรุปยอดค่าใช้จ่าย - BranchCash"\n`;
+      csv += `"สาขาที่เลือก:","${branchNameText}"\n`;
+      csv += `"ช่วงเวลา:","${timeText}"\n`;
+      csv += `"ยอดรวมค่าใช้จ่ายทั้งหมด (บาท):","${total.toFixed(2)}"\n`;
+      csv += `"ยอดจ่ายผ่านเงินโอน (บาท):","${transfer.toFixed(2)}"\n`;
+      csv += `"ยอดจ่ายเป็นเงินสด (บาท):","${cash.toFixed(2)}"\n`;
+      csv += `"จำนวนรายการทั้งหมด:","${filtered.length} รายการ"\n`;
+      csv += `"วันที่พิมพ์รายงาน:","${new Date().toLocaleDateString('th-TH')}"\n\n`;
+
+      csv += `วันที่,สาขา,ช่องทางการจ่าย,หมวดหมู่,รายละเอียด/หมายเหตุ,จำนวนเงิน(บาท)\n`;
+
+      filtered.forEach(t => {
+        const cleanNote = (t.note || '').replace(/"/g, '""');
+        csv += `"${t.date}","${t.branch}","${t.method}","${t.category}","${cleanNote}","${t.amount.toFixed(2)}"\n`;
+      });
+
+      // Bottom Total Row
+      csv += `"-","สรุปยอดรวมทั้งสิ้น","-","-","-","${total.toFixed(2)}"\n`;
+
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `BranchCash_${new Date().toISOString().split('T')[0]}.csv`;
+      const cleanBranchForFile = selectedBranch.replace(/[\s\/\\]/g, '_');
+      a.download = `BranchCash_${cleanBranchForFile}_${timeText}_${new Date().toISOString().split('T')[0]}.csv`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      showToast('ดาวน์โหลดไฟล์ Excel เรียบร้อย');
+
+      closeExportModal();
+      showToast(`ดาวน์โหลดไฟล์ ${branchNameText} เรียบร้อย`);
     }
 
     // BACKUP & RESTORE
@@ -1172,7 +1344,7 @@
       setTimeout(() => t.classList.remove('show'), 2500);
     }
 
-    // Run initialization
+    // Run
     initApp();
   </script>
 </body>
