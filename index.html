@@ -496,7 +496,7 @@
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
-      margin-bottom: 12px;
+      margin-bottom: 6px;
       align-items: center;
       justify-content: space-between;
     }
@@ -504,6 +504,12 @@
       display: flex;
       gap: 4px;
       overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: 2px;
+      scrollbar-width: none;
+    }
+    .time-pills::-webkit-scrollbar {
+      display: none;
     }
     .pill-btn {
       padding: 6px 10px;
@@ -515,6 +521,7 @@
       color: #475569;
       cursor: pointer;
       white-space: nowrap;
+      flex-shrink: 0;
     }
     .pill-btn.active {
       background: #2563eb;
@@ -827,6 +834,7 @@
             <button type="button" class="pill-btn" id="pMonth" onclick="setTimeFilter('this_month')">เดือนนี้</button>
             <button type="button" class="pill-btn" id="pYear" onclick="setTimeFilter('this_year')">ปีนี้</button>
             <button type="button" class="pill-btn" id="pAll" onclick="setTimeFilter('all')">ทั้งหมด</button>
+            <button type="button" class="pill-btn" id="pCustom" onclick="setTimeFilter('custom')">📅 เลือกช่วงวัน</button>
           </div>
           <div style="display: flex; gap: 6px; align-items: center;">
             <select id="filterDashBranch" onchange="renderDashboard()" class="form-select" style="width: auto; padding: 5px 8px; font-size: 11px;">
@@ -838,6 +846,21 @@
               <option value="สาขาระยอง">ระยอง</option>
               <option value="ส่วนตัว">ส่วนตัว</option>
             </select>
+          </div>
+        </div>
+
+        <!-- กล่องเลือกช่วงวันที่แบบกำหนดเอง -->
+        <div id="dashCustomRangeBox" style="display: none; margin-top: 8px; padding: 8px 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; gap: 6px; flex: 1; min-width: 130px;">
+            <span style="font-size: 11px; font-weight: 700; color: #475569; white-space: nowrap;">📅 เริ่ม:</span>
+            <input type="date" id="dashStartDate" class="form-input" style="padding: 5px 8px; font-size: 12px; height: 32px; background: #ffffff;" onchange="renderDashboard()">
+          </div>
+          <div style="display: flex; align-items: center; gap: 6px; flex: 1; min-width: 130px;">
+            <span style="font-size: 11px; font-weight: 700; color: #475569; white-space: nowrap;">ถึง:</span>
+            <input type="date" id="dashEndDate" class="form-input" style="padding: 5px 8px; font-size: 12px; height: 32px; background: #ffffff;" onchange="renderDashboard()">
+          </div>
+          <div id="dashCustomSummaryBadge" style="font-size: 11px; font-weight: 700; color: #1d4ed8; background: #eff6ff; border: 1px solid #bfdbfe; padding: 2px 8px; border-radius: 6px; white-space: nowrap;">
+            ช่วงวันที่เลือก
           </div>
         </div>
       </div>
@@ -1023,7 +1046,19 @@
           <option value="this_month" selected>🗓️ เฉพาะเดือนนี้ (รายเดือน)</option>
           <option value="today">📅 เฉพาะวันนี้ (รายวัน)</option>
           <option value="this_year">📊 เฉพาะปีนี้ (รายปี)</option>
+          <option value="custom">📅 กำหนดช่วงวันที่เอง</option>
         </select>
+
+        <div id="exportCustomRangeBox" style="display: none; margin-top: 8px; gap: 8px; align-items: center; background: #f8fafc; padding: 8px 10px; border-radius: 10px; border: 1px solid #e2e8f0;">
+          <div style="flex: 1;">
+            <label class="form-label" style="font-size: 10.5px; margin-bottom: 2px;">ตั้งแต่วันที่</label>
+            <input type="date" id="exportStartDate" class="form-input" style="padding: 5px 8px; font-size: 12px; background: #ffffff;" onchange="updateExportPreview()">
+          </div>
+          <div style="flex: 1;">
+            <label class="form-label" style="font-size: 10.5px; margin-bottom: 2px;">ถึงวันที่</label>
+            <input type="date" id="exportEndDate" class="form-input" style="padding: 5px 8px; font-size: 12px; background: #ffffff;" onchange="updateExportPreview()">
+          </div>
+        </div>
       </div>
 
       <!-- 3. กล่องพรีวิวสรุปยอดก่อนดาวน์โหลด -->
@@ -1517,12 +1552,43 @@
       if (tab === 'hist') renderHistoryList();
     }
 
+    function formatThaiShortDate(dateStr) {
+      if (!dateStr) return '';
+      const parts = dateStr.split('-');
+      if (parts.length !== 3) return dateStr;
+      const y = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10);
+      const d = parseInt(parts[2], 10);
+      const thaiYearShort = (y + 543) % 100;
+      return `${d}/${m}/${thaiYearShort}`;
+    }
+
     function setTimeFilter(filter) {
       currentTimeFilter = filter;
       document.getElementById('pToday').className = filter === 'today' ? 'pill-btn active' : 'pill-btn';
       document.getElementById('pMonth').className = filter === 'this_month' ? 'pill-btn active' : 'pill-btn';
       document.getElementById('pYear').className = filter === 'this_year' ? 'pill-btn active' : 'pill-btn';
       document.getElementById('pAll').className = filter === 'all' ? 'pill-btn active' : 'pill-btn';
+
+      const pCustom = document.getElementById('pCustom');
+      if (pCustom) pCustom.className = filter === 'custom' ? 'pill-btn active' : 'pill-btn';
+
+      const customBox = document.getElementById('dashCustomRangeBox');
+      if (customBox) {
+        customBox.style.display = filter === 'custom' ? 'flex' : 'none';
+        if (filter === 'custom') {
+          const sEl = document.getElementById('dashStartDate');
+          const eEl = document.getElementById('dashEndDate');
+          const now = new Date();
+          const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+          if (sEl && !sEl.value) {
+            sEl.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+          }
+          if (eEl && !eEl.value) {
+            eEl.value = todayStr;
+          }
+        }
+      }
       renderDashboard();
     }
 
@@ -1537,9 +1603,21 @@
       let filtered = transactions.filter(t => {
         const tDate = new Date(t.date);
         let timeMatch = true;
-        if (currentTimeFilter === 'today') timeMatch = t.date === todayStr;
-        else if (currentTimeFilter === 'this_month') timeMatch = (tDate.getFullYear() === currentYear && tDate.getMonth() === currentMonth);
-        else if (currentTimeFilter === 'this_year') timeMatch = tDate.getFullYear() === currentYear;
+        if (currentTimeFilter === 'today') {
+          timeMatch = t.date === todayStr;
+        } else if (currentTimeFilter === 'this_month') {
+          timeMatch = (tDate.getFullYear() === currentYear && tDate.getMonth() === currentMonth);
+        } else if (currentTimeFilter === 'this_year') {
+          timeMatch = tDate.getFullYear() === currentYear;
+        } else if (currentTimeFilter === 'custom') {
+          const sEl = document.getElementById('dashStartDate');
+          const eEl = document.getElementById('dashEndDate');
+          const start = sEl ? sEl.value : '';
+          const end = eEl ? eEl.value : '';
+          if (start && end) timeMatch = t.date >= start && t.date <= end;
+          else if (start) timeMatch = t.date >= start;
+          else if (end) timeMatch = t.date <= end;
+        }
 
         let branchMatch = branchFilter === 'ALL' || t.branch === branchFilter;
         return timeMatch && branchMatch;
@@ -1572,11 +1650,41 @@
       const elCashRatio = document.getElementById('dashCashRatio');
 
       if (elTotal) elTotal.innerText = '฿' + total.toLocaleString('th-TH', { minimumFractionDigits: 2 });
-      if (elCount) elCount.innerText = `${filtered.length} รายการ`;
+      
+      let periodLabel = '';
+      if (currentTimeFilter === 'today') periodLabel = ' (วันนี้)';
+      else if (currentTimeFilter === 'this_month') periodLabel = ' (เดือนนี้)';
+      else if (currentTimeFilter === 'this_year') periodLabel = ' (ปีนี้)';
+      else if (currentTimeFilter === 'custom') {
+        const sEl = document.getElementById('dashStartDate');
+        const eEl = document.getElementById('dashEndDate');
+        const start = sEl ? sEl.value : '';
+        const end = eEl ? eEl.value : '';
+        if (start && end) periodLabel = ` (${formatThaiShortDate(start)} - ${formatThaiShortDate(end)})`;
+      }
+      if (elCount) elCount.innerText = `${filtered.length} รายการ${periodLabel}`;
+
       if (elTransfer) elTransfer.innerText = '฿' + transfer.toLocaleString('th-TH', { minimumFractionDigits: 2 });
       if (elTransferRatio) elTransferRatio.innerText = `${transferPct}% ของยอดรวม`;
       if (elCash) elCash.innerText = '฿' + cash.toLocaleString('th-TH', { minimumFractionDigits: 2 });
       if (elCashRatio) elCashRatio.innerText = `${cashPct}% ของยอดรวม`;
+
+      const customBadge = document.getElementById('dashCustomSummaryBadge');
+      if (customBadge && currentTimeFilter === 'custom') {
+        const sEl = document.getElementById('dashStartDate');
+        const eEl = document.getElementById('dashEndDate');
+        const start = sEl ? sEl.value : '';
+        const end = eEl ? eEl.value : '';
+        if (start && end) {
+          customBadge.innerText = `ช่วง ${formatThaiShortDate(start)} - ${formatThaiShortDate(end)}`;
+        } else if (start) {
+          customBadge.innerText = `ตั้งแต่ ${formatThaiShortDate(start)}`;
+        } else if (end) {
+          customBadge.innerText = `ถึง ${formatThaiShortDate(end)}`;
+        } else {
+          customBadge.innerText = 'เลือกช่วงวันที่';
+        }
+      }
 
       const container = document.getElementById('branchStatGrid');
       if (container) {
@@ -1762,6 +1870,20 @@
       if (select) {
         select.value = branchId;
       }
+      const timeSelect = document.getElementById('exportTimeSelect');
+      if (timeSelect) {
+        if (currentTimeFilter === 'custom') {
+          timeSelect.value = 'custom';
+          const sEl = document.getElementById('exportStartDate');
+          const eEl = document.getElementById('exportEndDate');
+          const dashStart = document.getElementById('dashStartDate');
+          const dashEnd = document.getElementById('dashEndDate');
+          if (sEl && dashStart) sEl.value = dashStart.value;
+          if (eEl && dashEnd) eEl.value = dashEnd.value;
+        } else if (['today', 'this_month', 'this_year', 'all'].includes(currentTimeFilter)) {
+          timeSelect.value = currentTimeFilter;
+        }
+      }
       openExportModal();
     }
 
@@ -1784,6 +1906,15 @@
         if (selectedTime === 'today') timeMatch = t.date === todayStr;
         else if (selectedTime === 'this_month') timeMatch = (tDate.getFullYear() === currentYear && tDate.getMonth() === currentMonth);
         else if (selectedTime === 'this_year') timeMatch = tDate.getFullYear() === currentYear;
+        else if (selectedTime === 'custom') {
+          const sEl = document.getElementById('exportStartDate');
+          const eEl = document.getElementById('exportEndDate');
+          const start = sEl ? sEl.value : '';
+          const end = eEl ? eEl.value : '';
+          if (start && end) timeMatch = t.date >= start && t.date <= end;
+          else if (start) timeMatch = t.date >= start;
+          else if (end) timeMatch = t.date <= end;
+        }
 
         let branchMatch = selectedBranch === 'ALL' || t.branch === selectedBranch;
         return timeMatch && branchMatch;
@@ -1792,8 +1923,22 @@
 
     function updateExportPreview() {
       const branch = document.getElementById('exportBranchSelect').value;
+      const selectedTime = document.getElementById('exportTimeSelect').value;
       const targetLabel = document.getElementById('exportPreviewTarget');
       targetLabel.innerText = branch === 'ALL' ? 'ทุกสาขา' : branch;
+
+      const customBox = document.getElementById('exportCustomRangeBox');
+      if (customBox) {
+        customBox.style.display = selectedTime === 'custom' ? 'flex' : 'none';
+        if (selectedTime === 'custom') {
+          const sEl = document.getElementById('exportStartDate');
+          const eEl = document.getElementById('exportEndDate');
+          const dashStart = document.getElementById('dashStartDate');
+          const dashEnd = document.getElementById('dashEndDate');
+          if (sEl && dashStart && dashStart.value && !sEl.value) sEl.value = dashStart.value;
+          if (eEl && dashEnd && dashEnd.value && !eEl.value) eEl.value = dashEnd.value;
+        }
+      }
 
       const filtered = getExportFilteredData();
       let total = 0, transfer = 0, cash = 0;
@@ -1832,6 +1977,13 @@
       if (selectedTime === 'today') timeLabel = 'เฉพาะวันนี้';
       else if (selectedTime === 'this_month') timeLabel = 'เฉพาะเดือนนี้';
       else if (selectedTime === 'this_year') timeLabel = 'เฉพาะปีนี้';
+      else if (selectedTime === 'custom') {
+        const sEl = document.getElementById('exportStartDate');
+        const eEl = document.getElementById('exportEndDate');
+        const s = sEl ? sEl.value : '';
+        const e = eEl ? eEl.value : '';
+        timeLabel = `ช่วง ${formatThaiShortDate(s)} ถึง ${formatThaiShortDate(e)}`;
+      }
 
       const branchLabel = selectedBranch === 'ALL' ? 'ทุกสาขา' : selectedBranch;
 
