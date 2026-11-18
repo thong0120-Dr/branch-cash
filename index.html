@@ -830,8 +830,8 @@
       <div class="card" style="padding: 12px 16px;">
         <div class="filter-bar">
           <div class="time-pills">
-            <button type="button" class="pill-btn active" id="pToday" onclick="setTimeFilter('today')">วันนี้</button>
-            <button type="button" class="pill-btn" id="pMonth" onclick="setTimeFilter('this_month')">เดือนนี้</button>
+            <button type="button" class="pill-btn active" id="pMonth" onclick="setTimeFilter('this_month')">เดือนนี้</button>
+            <button type="button" class="pill-btn" id="pToday" onclick="setTimeFilter('today')">วันนี้</button>
             <button type="button" class="pill-btn" id="pYear" onclick="setTimeFilter('this_year')">ปีนี้</button>
             <button type="button" class="pill-btn" id="pAll" onclick="setTimeFilter('all')">ทั้งหมด</button>
             <button type="button" class="pill-btn" id="pCustom" onclick="setTimeFilter('custom')">📅 เลือกช่วงวัน</button>
@@ -1126,7 +1126,7 @@
     let memoryStorage = [];
     const STORAGE_KEY = 'branch_cash_app_data_v4';
     let transactions = [];
-    let currentTimeFilter = 'today';
+    let currentTimeFilter = 'this_month';
 
     const BRANCHES = [
       { id: 'สาขาเชียงใหม่', name: 'เชียงใหม่', icon: '🏢' },
@@ -1565,13 +1565,17 @@
 
     function setTimeFilter(filter) {
       currentTimeFilter = filter;
-      document.getElementById('pToday').className = filter === 'today' ? 'pill-btn active' : 'pill-btn';
-      document.getElementById('pMonth').className = filter === 'this_month' ? 'pill-btn active' : 'pill-btn';
-      document.getElementById('pYear').className = filter === 'this_year' ? 'pill-btn active' : 'pill-btn';
-      document.getElementById('pAll').className = filter === 'all' ? 'pill-btn active' : 'pill-btn';
+      const btnToday = document.getElementById('pToday');
+      const btnMonth = document.getElementById('pMonth');
+      const btnYear = document.getElementById('pYear');
+      const btnAll = document.getElementById('pAll');
+      const btnCustom = document.getElementById('pCustom');
 
-      const pCustom = document.getElementById('pCustom');
-      if (pCustom) pCustom.className = filter === 'custom' ? 'pill-btn active' : 'pill-btn';
+      if (btnToday) btnToday.className = filter === 'today' ? 'pill-btn active' : 'pill-btn';
+      if (btnMonth) btnMonth.className = filter === 'this_month' ? 'pill-btn active' : 'pill-btn';
+      if (btnYear) btnYear.className = filter === 'this_year' ? 'pill-btn active' : 'pill-btn';
+      if (btnAll) btnAll.className = filter === 'all' ? 'pill-btn active' : 'pill-btn';
+      if (btnCustom) btnCustom.className = filter === 'custom' ? 'pill-btn active' : 'pill-btn';
 
       const customBox = document.getElementById('dashCustomRangeBox');
       if (customBox) {
@@ -1601,14 +1605,16 @@
       const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
 
       let filtered = transactions.filter(t => {
-        const tDate = new Date(t.date);
+        const parts = (t.date || '').split('-');
+        const tYear = parseInt(parts[0], 10);
+        const tMonth = parseInt(parts[1], 10) - 1; // 0-indexed month
         let timeMatch = true;
         if (currentTimeFilter === 'today') {
           timeMatch = t.date === todayStr;
         } else if (currentTimeFilter === 'this_month') {
-          timeMatch = (tDate.getFullYear() === currentYear && tDate.getMonth() === currentMonth);
+          timeMatch = (tYear === currentYear && tMonth === currentMonth);
         } else if (currentTimeFilter === 'this_year') {
-          timeMatch = tDate.getFullYear() === currentYear;
+          timeMatch = tYear === currentYear;
         } else if (currentTimeFilter === 'custom') {
           const sEl = document.getElementById('dashStartDate');
           const eEl = document.getElementById('dashEndDate');
@@ -1662,7 +1668,14 @@
         const end = eEl ? eEl.value : '';
         if (start && end) periodLabel = ` (${formatThaiShortDate(start)} - ${formatThaiShortDate(end)})`;
       }
-      if (elCount) elCount.innerText = `${filtered.length} รายการ${periodLabel}`;
+
+      if (elCount) {
+        if (filtered.length === 0 && transactions.length > 0 && currentTimeFilter === 'today') {
+          elCount.innerHTML = `0 รายการ (วันนี้) • <a href="javascript:void(0)" onclick="setTimeFilter('this_month')" style="color: #2563eb; text-decoration: underline; font-weight: 700; cursor: pointer;">แตะดูยอดเดือนนี้ (${transactions.length} รายการ)</a>`;
+        } else {
+          elCount.innerText = `${filtered.length} รายการ${periodLabel}`;
+        }
+      }
 
       if (elTransfer) elTransfer.innerText = '฿' + transfer.toLocaleString('th-TH', { minimumFractionDigits: 2 });
       if (elTransferRatio) elTransferRatio.innerText = `${transferPct}% ของยอดรวม`;
