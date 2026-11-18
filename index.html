@@ -900,10 +900,39 @@
     <!-- ================= TAB 3: HISTORY ================= -->
     <div class="tab-content" id="tabContentHist">
       <div class="card">
-        <div class="card-title">ประวัติการลงรายการ</div>
+        <div class="card-title" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <span>ประวัติการลงรายการ</span>
+          <span id="histSummaryBadge" style="font-size: 11px; font-weight: 700; color: #2563eb; background: #eff6ff; padding: 2px 8px; border-radius: 6px;">0 รายการ</span>
+        </div>
         
+        <!-- แถบฟิลเตอร์ช่วงเวลาสำหรับประวัติ -->
+        <div class="filter-bar" style="margin-bottom: 8px;">
+          <div class="time-pills">
+            <button type="button" class="pill-btn active" id="histPAll" onclick="setHistTimeFilter('all')">ทั้งหมด</button>
+            <button type="button" class="pill-btn" id="histPMonth" onclick="setHistTimeFilter('this_month')">เดือนนี้</button>
+            <button type="button" class="pill-btn" id="histPToday" onclick="setHistTimeFilter('today')">วันนี้</button>
+            <button type="button" class="pill-btn" id="histPCustom" onclick="setHistTimeFilter('custom')">📅 เลือกช่วงวัน</button>
+          </div>
+        </div>
+
+        <!-- กล่องเลือกช่วงวันที่แบบกำหนดเองสำหรับประวัติ -->
+        <div id="histCustomRangeBox" style="display: none; margin-bottom: 10px; padding: 8px 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; gap: 6px; flex: 1; min-width: 130px;">
+            <span style="font-size: 11px; font-weight: 700; color: #475569; white-space: nowrap;">📅 เริ่ม:</span>
+            <input type="date" id="histStartDate" class="form-input" style="padding: 5px 8px; font-size: 12px; height: 32px; background: #ffffff;" onchange="renderHistoryList()">
+          </div>
+          <div style="display: flex; align-items: center; gap: 6px; flex: 1; min-width: 130px;">
+            <span style="font-size: 11px; font-weight: 700; color: #475569; white-space: nowrap;">ถึง:</span>
+            <input type="date" id="histEndDate" class="form-input" style="padding: 5px 8px; font-size: 12px; height: 32px; background: #ffffff;" onchange="renderHistoryList()">
+          </div>
+          <div id="histCustomDateBadge" style="font-size: 11px; font-weight: 700; color: #1d4ed8; background: #eff6ff; border: 1px solid #bfdbfe; padding: 2px 8px; border-radius: 6px; white-space: nowrap;">
+            ช่วงวันที่เลือก
+          </div>
+        </div>
+
+        <!-- แถวค้นหา & กรองสาขา -->
         <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-          <input type="text" id="histSearch" oninput="renderHistoryList()" placeholder="ค้นหาสาขา, หมายเหตุ, ยอดเงิน..." class="form-input" style="font-size: 12px; padding: 8px 12px;">
+          <input type="text" id="histSearch" oninput="renderHistoryList()" placeholder="🔍 ค้นหาสาขา, หมายเหตุ, ยอดเงิน..." class="form-input" style="font-size: 12px; padding: 8px 12px;">
           <select id="histBranchFilter" onchange="renderHistoryList()" class="form-select" style="font-size: 12px; padding: 8px 6px; width: 110px;">
             <option value="ALL">ทุกสาขา</option>
             <option value="สาขาเชียงใหม่">เชียงใหม่</option>
@@ -1727,6 +1756,41 @@
       }
     }
 
+    let currentHistTimeFilter = 'all';
+
+    function setHistTimeFilter(filter) {
+      currentHistTimeFilter = filter;
+      const bAll = document.getElementById('histPAll');
+      const bMonth = document.getElementById('histPMonth');
+      const bToday = document.getElementById('histPToday');
+      const bCustom = document.getElementById('histPCustom');
+
+      if (bAll) bAll.className = filter === 'all' ? 'pill-btn active' : 'pill-btn';
+      if (bMonth) bMonth.className = filter === 'this_month' ? 'pill-btn active' : 'pill-btn';
+      if (bToday) bToday.className = filter === 'today' ? 'pill-btn active' : 'pill-btn';
+      if (bCustom) bCustom.className = filter === 'custom' ? 'pill-btn active' : 'pill-btn';
+
+      const box = document.getElementById('histCustomRangeBox');
+      if (box) {
+        box.style.display = filter === 'custom' ? 'flex' : 'none';
+        if (filter === 'custom') {
+          const sEl = document.getElementById('histStartDate');
+          const eEl = document.getElementById('histEndDate');
+          const dashStart = document.getElementById('dashStartDate');
+          const dashEnd = document.getElementById('dashEndDate');
+          const now = new Date();
+          const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+          if (sEl && !sEl.value) {
+            sEl.value = (dashStart && dashStart.value) ? dashStart.value : `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+          }
+          if (eEl && !eEl.value) {
+            eEl.value = (dashEnd && dashEnd.value) ? dashEnd.value : todayStr;
+          }
+        }
+      }
+      renderHistoryList();
+    }
+
     function renderHistoryList() {
       const searchEl = document.getElementById('histSearch');
       const search = (searchEl ? searchEl.value || '' : '').toLowerCase();
@@ -1735,18 +1799,75 @@
       const container = document.getElementById('historyListContainer');
       if (!container) return;
 
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth();
+      const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+
       const filtered = transactions.filter(t => {
+        // 1. Text Search match
         const textMatch = (t.branch || '').toLowerCase().includes(search) ||
                           (t.note || '').toLowerCase().includes(search) ||
                           (t.category || '').toLowerCase().includes(search) ||
                           (t.recorder || '').toLowerCase().includes(search) ||
                           (t.amount || '').toString().includes(search);
+
+        // 2. Branch match
         const branchMatch = branchFilter === 'ALL' || t.branch === branchFilter;
-        return textMatch && branchMatch;
+
+        // 3. Time Filter match
+        const parts = (t.date || '').split('-');
+        const tYear = parseInt(parts[0], 10);
+        const tMonth = parseInt(parts[1], 10) - 1;
+        let timeMatch = true;
+
+        if (currentHistTimeFilter === 'today') {
+          timeMatch = t.date === todayStr;
+        } else if (currentHistTimeFilter === 'this_month') {
+          timeMatch = (tYear === currentYear && tMonth === currentMonth);
+        } else if (currentHistTimeFilter === 'this_year') {
+          timeMatch = tYear === currentYear;
+        } else if (currentHistTimeFilter === 'custom') {
+          const sEl = document.getElementById('histStartDate');
+          const eEl = document.getElementById('histEndDate');
+          const start = sEl ? sEl.value : '';
+          const end = eEl ? eEl.value : '';
+          if (start && end) timeMatch = t.date >= start && t.date <= end;
+          else if (start) timeMatch = t.date >= start;
+          else if (end) timeMatch = t.date <= end;
+        }
+
+        return textMatch && branchMatch && timeMatch;
       });
 
+      // Update badge in history title
+      const summaryBadge = document.getElementById('histSummaryBadge');
+      if (summaryBadge) {
+        let totalSum = 0;
+        filtered.forEach(t => totalSum += (Number(t.amount) || 0));
+        summaryBadge.innerText = `${filtered.length} รายการ (฿${totalSum.toLocaleString('th-TH', { minimumFractionDigits: 2 })})`;
+      }
+
+      // Update custom date badge
+      const customBadge = document.getElementById('histCustomDateBadge');
+      if (customBadge && currentHistTimeFilter === 'custom') {
+        const sEl = document.getElementById('histStartDate');
+        const eEl = document.getElementById('histEndDate');
+        const start = sEl ? sEl.value : '';
+        const end = eEl ? eEl.value : '';
+        if (start && end) {
+          customBadge.innerText = `ช่วง ${formatThaiShortDate(start)} - ${formatThaiShortDate(end)}`;
+        } else if (start) {
+          customBadge.innerText = `ตั้งแต่ ${formatThaiShortDate(start)}`;
+        } else if (end) {
+          customBadge.innerText = `ถึง ${formatThaiShortDate(end)}`;
+        } else {
+          customBadge.innerText = 'เลือกช่วงวันที่';
+        }
+      }
+
       if (filtered.length === 0) {
-        container.innerHTML = `<div style="padding: 24px; text-align: center; color: #94a3b8; font-size: 13px;">ยังไม่มีรายการ หรือไม่พบข้อมูล</div>`;
+        container.innerHTML = `<div style="padding: 24px; text-align: center; color: #94a3b8; font-size: 13px;">ยังไม่มีรายการ หรือไม่พบข้อมูลตามเงื่อนไขที่เลือก</div>`;
         return;
       }
 
